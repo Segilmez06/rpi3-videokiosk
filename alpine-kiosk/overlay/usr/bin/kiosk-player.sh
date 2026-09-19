@@ -12,7 +12,89 @@ chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null
 RAM_VIDEOS_DIR="/run/kiosk-videos"
 PLAYLIST_FILE="/run/kiosk-playlist.txt"
 NO_MEDIA_IMG="/usr/share/videokiosk/no-media.png"
+BOOT_IMG="/usr/share/videokiosk/booting.png"
 MAX_RAM_CACHE_KB=460800  # 450 MB safe RAM threshold (leaves ~400MB free for MPV & kernel)
+
+# Read display orientation from configuration file (defaults to 0 / landscape)
+read_orientation() {
+    ROT=0
+    # 1. Check if already cached in RAM
+    if [ -f /run/kiosk-orientation ]; then
+        ROT=$(cat /run/kiosk-orientation 2>/dev/null)
+    fi
+
+    # 2. Check storage locations for orientation.txt
+    for f in /media/mmcblk0p1/orientation.txt /media/*/orientation.txt /videos/orientation.txt /orientation.txt /etc/videokiosk/orientation.txt; do
+        if [ -f "$f" ]; then
+            val=$(grep -v '^[[:space:]]*#' "$f" 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+            case "$val" in
+                90|portrait|right)
+                    ROT=90
+                    ;;
+                180|inverted|flip|upside-down)
+                    ROT=180
+                    ;;
+                270|portrait-inverted|left)
+                    ROT=270
+                    ;;
+                0|landscape|normal|*)
+                    ROT=0
+                    ;;
+            esac
+            echo "$ROT" > /run/kiosk-orientation 2>/dev/null
+            break
+        fi
+    done
+
+    ROT=${ROT:-0}
+    echo "$ROT"
+}
+
+# Locate boot splash image (custom SD card splash takes precedence)
+find_boot_splash() {
+    for img in /media/mmcblk0p1/splash.png /media/mmcblk0p1/boot.png /videos/splash.png "$BOOT_IMG"; do
+        [ -f "$img" ] && echo "$img" && return 0
+    done
+    return 1
+}
+
+# Display boot splash screen on HDMI during early boot & RAM copy
+show_boot_splash() {
+    [ -f /run/kiosk-splash.pid ] && return 0
+    SPLASH=$(find_boot_splash)
+    if [ -n "$SPLASH" ]; then
+        ROT=$(read_orientation)
+        echo "[kiosk-player] Displaying boot splash ($SPLASH, rotate=$ROT deg)..." >&2
+        /usr/bin/mpv \
+            --no-config \
+            --vo=gpu \
+            --gpu-context=drm \
+            --video-rotate="$ROT" \
+            --image-display-duration=inf \
+            --loop-file=inf \
+            "$SPLASH" > /run/kiosk-mpv.log 2>&1 &
+        echo $! > /run/kiosk-splash.pid
+    fi
+}
+
+# Cleanly hide boot splash screen
+hide_boot_splash() {
+    if [ -f /run/kiosk-splash.pid ]; then
+        SPID=$(cat /run/kiosk-splash.pid 2>/dev/null)
+        if [ -n "$SPID" ] && kill -0 "$SPID" 2>/dev/null; then
+            kill -TERM "$SPID" 2>/dev/null || true
+            for i in 1 2 3 4 5; do
+                kill -0 "$SPID" 2>/dev/null || break
+                usleep 50000 2>/dev/null || sleep 0.1
+            done
+            if kill -0 "$SPID" 2>/dev/null; then
+                kill -9 "$SPID" 2>/dev/null || true
+            fi
+            wait "$SPID" 2>/dev/null || true
+        fi
+        rm -f /run/kiosk-splash.pid
+    fi
+}
 
 # Video Kiosk Initial State: Red PWR is OFF, Green ACT starts SOLID ON
 for pwr in /sys/class/leds/PWR /sys/class/leds/led1 /sys/class/leds/*pwr*; do
@@ -34,6 +116,9 @@ while [ ! -e /dev/dri/card0 ] && [ $count -lt 50 ]; do
     sleep 0.1
     count=$((count + 1))
 done
+
+# Immediately paint boot splash screen to HDMI monitor
+show_boot_splash
 
 # Background SD & USB replug watcher: detects card re-insertion or USB drive insertion and triggers reboot
 start_replug_watcher() {
@@ -126,41 +211,6 @@ locate_source_dir() {
     return 1
 }
 
-# Read display orientation from configuration file (defaults to 0 / landscape)
-read_orientation() {
-    ROT=0
-    # 1. Check if already cached in RAM
-    if [ -f /run/kiosk-orientation ]; then
-        ROT=$(cat /run/kiosk-orientation 2>/dev/null)
-    fi
-
-    # 2. Check storage locations for orientation.txt
-    for f in /media/mmcblk0p1/orientation.txt /media/*/orientation.txt /videos/orientation.txt /orientation.txt /etc/videokiosk/orientation.txt; do
-        if [ -f "$f" ]; then
-            val=$(grep -v '^[[:space:]]*#' "$f" 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
-            case "$val" in
-                90|portrait|right)
-                    ROT=90
-                    ;;
-                180|inverted|flip|upside-down)
-                    ROT=180
-                    ;;
-                270|portrait-inverted|left)
-                    ROT=270
-                    ;;
-                0|landscape|normal|*)
-                    ROT=0
-                    ;;
-            esac
-            echo "$ROT" > /run/kiosk-orientation 2>/dev/null
-            break
-        fi
-    done
-
-    ROT=${ROT:-0}
-    echo "$ROT"
-}
-
 # Generate playlist and handle RAM caching for multiple video files
 prepare_playlist() {
     # 1. If RAM cache already exists and has videos, use it directly
@@ -238,6 +288,9 @@ while true; do
         VIDEO_COUNT=$(wc -l < "$PLAYLIST_FILE")
         echo "[kiosk-player] Starting MPV with $VIDEO_COUNT video(s) in seamless playlist loop..." >&2
 
+        # Dismiss boot splash screen if still showing
+        hide_boot_splash
+
         # Signal that kiosk is fully ready for media replug events
         touch /run/kiosk-ready
 
@@ -276,6 +329,10 @@ while true; do
         done
     else
         echo "[kiosk-player] No video files found. Displaying no-media screen & blinking Red LED (100ms)..." >&2
+
+        # Dismiss boot splash screen before displaying no-media screen
+        hide_boot_splash
+
         # Attention / Error alert: Blink Red PWR LED 100ms, Green ACT is OFF
         for pwr in /sys/class/leds/PWR /sys/class/leds/led1 /sys/class/leds/*pwr*; do
             if [ -d "$pwr" ]; then
@@ -302,6 +359,7 @@ while true; do
                 --vo=gpu \
                 --gpu-context=drm \
                 --video-rotate="$ROTATION" \
+                --image-display-duration=inf \
                 --loop-file=inf \
                 "$NO_MEDIA_IMG" > /run/kiosk-mpv.log 2>&1 &
             NO_MEDIA_PID=$!
@@ -312,8 +370,17 @@ while true; do
             done
 
             # Media discovered! Cleanly terminate the static graphic
-            kill -9 "$NO_MEDIA_PID" 2>/dev/null || true
-            wait "$NO_MEDIA_PID" 2>/dev/null || true
+            if kill -0 "$NO_MEDIA_PID" 2>/dev/null; then
+                kill -TERM "$NO_MEDIA_PID" 2>/dev/null || true
+                for i in 1 2 3 4 5; do
+                    kill -0 "$NO_MEDIA_PID" 2>/dev/null || break
+                    usleep 50000 2>/dev/null || sleep 0.1
+                done
+                if kill -0 "$NO_MEDIA_PID" 2>/dev/null; then
+                    kill -9 "$NO_MEDIA_PID" 2>/dev/null || true
+                fi
+                wait "$NO_MEDIA_PID" 2>/dev/null || true
+            fi
         else
             while [ -z "$(locate_source_dir)" ]; do
                 sleep 2

@@ -170,6 +170,9 @@ mkdir -p "${SCRIPT_DIR}/overlay/usr/share/videokiosk"
 if [ -f "${ROOT_DIR}/assets/no-media.png" ]; then
     cp "${ROOT_DIR}/assets/no-media.png" "${SCRIPT_DIR}/overlay/usr/share/videokiosk/no-media.png"
 fi
+if [ -f "${ROOT_DIR}/assets/booting.png" ]; then
+    cp "${ROOT_DIR}/assets/booting.png" "${SCRIPT_DIR}/overlay/usr/share/videokiosk/booting.png"
+fi
 
 # Create apkovl tar.gz preserving root ownership
 tar -czf "${APKOVL_FILE}" \
@@ -180,15 +183,19 @@ tar -czf "${APKOVL_FILE}" \
 cp "${APKOVL_FILE}" "${STAGING_DIR}/localhost.apkovl.tar.gz"
 
 # ------------------------------------------------------------------------------
-# 8. Setup Videos Directory and Orientation Config
+# 8. Setup Videos Directory, Orientation Config, and Splash Image
 # ------------------------------------------------------------------------------
-echo "[*] Setting up /videos directory and orientation.txt for user media..."
+echo "[*] Setting up /videos directory, orientation.txt, and splash.png for user media..."
 mkdir -p "${STAGING_DIR}/videos"
 cat << 'EOF' > "${STAGING_DIR}/orientation.txt"
 # Video Kiosk Display Orientation
 # Options: 0 (Landscape / Normal), 90 (Portrait), 180 (Inverted Landscape), 270 (Inverted Portrait)
 0
 EOF
+
+if [ -f "${ROOT_DIR}/assets/booting.png" ]; then
+    cp "${ROOT_DIR}/assets/booting.png" "${STAGING_DIR}/splash.png"
+fi
 
 
 # ------------------------------------------------------------------------------
