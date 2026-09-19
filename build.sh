@@ -267,7 +267,16 @@ cat << 'EOF' > "$MNT_DIR/etc/systemd/system/serial-getty@ttyAMA0.service.d/autol
 [Service]
 Type=simple
 ExecStart=
-ExecStart=-/sbin/agetty --autologin root --noclear -s %I 115200 vt220
+ExecStart=-/sbin/agetty --autologin root --noclear -s %I 115200 xterm-256color
+EOF
+
+# Auto-detect serial terminal size and uncap 80-column width limit
+cat << 'EOF' > "$MNT_DIR/etc/profile.d/00-serial-width.sh"
+shopt -s checkwinsize 2>/dev/null || true
+if [ -t 0 ]; then
+    # Uncap 80 columns: query terminal size or default to full width
+    stty cols $(tput cols 2>/dev/null || echo 160) 2>/dev/null || true
+fi
 EOF
 
 # 13c. Configure Global Systemd Fast Timeouts (eliminate 90s/120s stalls)
