@@ -41,6 +41,9 @@ case "$1" in
             echo "No MPV log file found."
         fi
         echo ""
+        echo "=== Display Orientation ==="
+        echo "Orientation: $(cat /run/kiosk-orientation 2>/dev/null || echo 0) deg"
+        echo ""
         echo "=== Free RAM ==="
         free -h
         ;;
@@ -51,8 +54,28 @@ case "$1" in
             echo "No MPV log file found at /run/kiosk-mpv.log"
         fi
         ;;
+    rotate|orientation)
+        if [ -n "$2" ]; then
+            case "$2" in
+                90|portrait|right) ROT=90 ;;
+                180|inverted|flip|upside-down) ROT=180 ;;
+                270|portrait-inverted|left) ROT=270 ;;
+                0|landscape|normal|*) ROT=0 ;;
+            esac
+            echo "$ROT" > /run/kiosk-orientation
+            if [ -d /media/mmcblk0p1 ]; then
+                echo "$ROT" > /media/mmcblk0p1/orientation.txt 2>/dev/null || true
+            fi
+            echo "Display orientation set to: ${ROT} deg"
+            echo "Restarting kiosk-player..."
+            /etc/init.d/kiosk-player restart
+        else
+            echo "Current orientation: $(cat /run/kiosk-orientation 2>/dev/null || echo 0) deg"
+            echo "Usage: kiosk-player rotate {0|90|180|270|landscape|portrait}"
+        fi
+        ;;
     *)
-        echo "Usage: kiosk-player {start|stop|restart|status|log}"
+        echo "Usage: kiosk-player {start|stop|restart|status|log|rotate [0|90|180|270]}"
         exit 1
         ;;
 esac

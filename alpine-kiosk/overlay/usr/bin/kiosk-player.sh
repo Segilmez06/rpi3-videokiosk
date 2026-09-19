@@ -126,6 +126,41 @@ locate_source_dir() {
     return 1
 }
 
+# Read display orientation from configuration file (defaults to 0 / landscape)
+read_orientation() {
+    ROT=0
+    # 1. Check if already cached in RAM
+    if [ -f /run/kiosk-orientation ]; then
+        ROT=$(cat /run/kiosk-orientation 2>/dev/null)
+    fi
+
+    # 2. Check storage locations for orientation.txt
+    for f in /media/mmcblk0p1/orientation.txt /media/*/orientation.txt /videos/orientation.txt /orientation.txt /etc/videokiosk/orientation.txt; do
+        if [ -f "$f" ]; then
+            val=$(grep -v '^[[:space:]]*#' "$f" 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+            case "$val" in
+                90|portrait|right)
+                    ROT=90
+                    ;;
+                180|inverted|flip|upside-down)
+                    ROT=180
+                    ;;
+                270|portrait-inverted|left)
+                    ROT=270
+                    ;;
+                0|landscape|normal|*)
+                    ROT=0
+                    ;;
+            esac
+            echo "$ROT" > /run/kiosk-orientation 2>/dev/null
+            break
+        fi
+    done
+
+    ROT=${ROT:-0}
+    echo "$ROT"
+}
+
 # Generate playlist and handle RAM caching for multiple video files
 prepare_playlist() {
     # 1. If RAM cache already exists and has videos, use it directly
@@ -214,11 +249,16 @@ while true; do
             fi
         done
 
+        # Read display orientation (0, 90, 180, 270)
+        ROTATION=$(read_orientation)
+        echo "[kiosk-player] Display orientation: ${ROTATION} deg" >&2
+
         # Launch MPV with seamless playlist looping and prefetching
         /usr/bin/mpv \
             --no-config \
             --vo=gpu \
             --gpu-context=drm \
+            --video-rotate="$ROTATION" \
             --loop-playlist=inf \
             --no-audio \
             --cursor-autohide=always \
@@ -256,10 +296,12 @@ while true; do
 
         # Display full-screen 1080p No-Media graphic SOLID (no flashing!) until media is discovered
         if [ -f "$NO_MEDIA_IMG" ]; then
+            ROTATION=$(read_orientation)
             /usr/bin/mpv \
                 --no-config \
                 --vo=gpu \
                 --gpu-context=drm \
+                --video-rotate="$ROTATION" \
                 --loop-file=inf \
                 "$NO_MEDIA_IMG" > /run/kiosk-mpv.log 2>&1 &
             NO_MEDIA_PID=$!

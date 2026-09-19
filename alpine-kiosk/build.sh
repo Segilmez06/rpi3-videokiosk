@@ -180,10 +180,15 @@ tar -czf "${APKOVL_FILE}" \
 cp "${APKOVL_FILE}" "${STAGING_DIR}/localhost.apkovl.tar.gz"
 
 # ------------------------------------------------------------------------------
-# 8. Setup Videos Directory
+# 8. Setup Videos Directory and Orientation Config
 # ------------------------------------------------------------------------------
-echo "[*] Setting up empty /videos directory for user media..."
+echo "[*] Setting up /videos directory and orientation.txt for user media..."
 mkdir -p "${STAGING_DIR}/videos"
+cat << 'EOF' > "${STAGING_DIR}/orientation.txt"
+# Video Kiosk Display Orientation
+# Options: 0 (Landscape / Normal), 90 (Portrait), 180 (Inverted Landscape), 270 (Inverted Portrait)
+0
+EOF
 
 
 # ------------------------------------------------------------------------------
