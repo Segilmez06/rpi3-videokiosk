@@ -226,6 +226,7 @@ chroot "$MNT_DIR" /bin/bash -c "
     systemctl enable kiosk-expand.service
     systemctl enable ssh.service
     systemctl enable zramswap.service || true
+    systemctl unmask serial-getty@ttyAMA0.service || true
     systemctl enable serial-getty@ttyAMA0.service || true
     systemctl mask getty@tty1.service
     systemctl mask bluetooth.service || true
