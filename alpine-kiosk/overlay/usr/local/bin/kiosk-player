@@ -19,12 +19,17 @@ case "$1" in
         echo ""
         echo "=== Active Processes ==="
         ps aux | grep -E 'kiosk-player|mpv' | grep -v grep || echo "No active processes found."
+        echo "=== Active Media Location ==="
+        if [ -d "/run/kiosk-videos" ] && [ -n "$(ls -A /run/kiosk-videos 2>/dev/null)" ]; then
+            echo "Status: Running from IN-RAM tmpfs (SD card unmounted and safely ejectable!)"
+            ls -lh /run/kiosk-videos/
+        else
+            echo "Status: Streaming from physical storage"
+            ls -lh /media/mmcblk0p1/videos 2>/dev/null || echo "No /media/mmcblk0p1/videos directory."
+        fi
         echo ""
-        echo "=== Mounted Storage ==="
-        df -h /media/mmcblk0p1 2>/dev/null || df -h /
-        echo ""
-        echo "=== Videos on SD Card ==="
-        ls -lh /media/mmcblk0p1/videos 2>/dev/null || echo "No /media/mmcblk0p1/videos directory."
+        echo "=== Free RAM ==="
+        free -h
         ;;
     *)
         echo "Usage: kiosk-player {start|stop|restart|status}"
