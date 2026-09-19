@@ -65,10 +65,6 @@ while true; do
 
     if [ -n "$VIDEOS" ]; then
         echo "[kiosk-player] Starting MPV playback loop..." >&2
-        # Turn off LEDs again in case kernel re-enabled them
-        for led in /sys/class/leds/*; do
-            [ -e "$led/brightness" ] && echo 0 > "$led/brightness" 2>/dev/null || true
-        done
 
         # shellcheck disable=SC2086
         /usr/bin/mpv \

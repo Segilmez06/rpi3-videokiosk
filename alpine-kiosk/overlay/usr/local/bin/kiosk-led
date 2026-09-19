@@ -1,0 +1,117 @@
+#!/bin/sh
+# Raspberry Pi 3 On-board LED Controller (Green ACT & Red PWR)
+
+find_act() {
+    for p in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act*; do
+        [ -d "$p" ] && echo "$p" && return 0
+    done
+    return 1
+}
+
+find_pwr() {
+    for p in /sys/class/leds/PWR /sys/class/leds/led1 /sys/class/leds/*pwr*; do
+        [ -d "$p" ] && echo "$p" && return 0
+    done
+    return 1
+}
+
+ACT=$(find_act 2>/dev/null)
+PWR=$(find_pwr 2>/dev/null)
+
+case "$1" in
+    status)
+        echo "=== Raspberry Pi LED Status ==="
+        if [ -n "$ACT" ]; then
+            echo "Green (ACT) [path: $ACT]:"
+            echo "  Brightness: $(cat "$ACT/brightness" 2>/dev/null)"
+            echo "  Max Bright: $(cat "$ACT/max_brightness" 2>/dev/null)"
+            echo "  Trigger:    $(cat "$ACT/trigger" 2>/dev/null | grep -o '\[.*\]')"
+        else
+            echo "Green (ACT): Not found"
+        fi
+        if [ -n "$PWR" ]; then
+            echo "Red (PWR) [path: $PWR]:"
+            echo "  Brightness: $(cat "$PWR/brightness" 2>/dev/null)"
+            echo "  Max Bright: $(cat "$PWR/max_brightness" 2>/dev/null)"
+            echo "  Trigger:    $(cat "$PWR/trigger" 2>/dev/null | grep -o '\[.*\]')"
+        else
+            echo "Red (PWR): Not found"
+        fi
+        ;;
+    green|act)
+        [ -z "$ACT" ] && echo "Error: Green ACT LED node not found in /sys/class/leds/" && exit 1
+        case "$2" in
+            on)
+                echo none > "$ACT/trigger" 2>/dev/null || true
+                echo 1 > "$ACT/brightness"
+                echo "Green (ACT) -> ON"
+                ;;
+            off)
+                echo none > "$ACT/trigger" 2>/dev/null || true
+                echo 0 > "$ACT/brightness"
+                echo "Green (ACT) -> OFF"
+                ;;
+            heartbeat)
+                echo heartbeat > "$ACT/trigger"
+                echo "Green (ACT) -> HEARTBEAT"
+                ;;
+            blink|timer)
+                echo timer > "$ACT/trigger"
+                echo 250 > "$ACT/delay_on" 2>/dev/null || true
+                echo 250 > "$ACT/delay_off" 2>/dev/null || true
+                echo "Green (ACT) -> BLINK (250ms on / 250ms off)"
+                ;;
+            mmc|activity)
+                echo mmc0 > "$ACT/trigger"
+                echo "Green (ACT) -> SD Card Activity (mmc0)"
+                ;;
+            *)
+                echo "Usage: kiosk-led green {on|off|blink|heartbeat|mmc}"
+                exit 1
+                ;;
+        esac
+        ;;
+    red|pwr)
+        [ -z "$PWR" ] && echo "Error: Red PWR LED node not found in /sys/class/leds/" && exit 1
+        case "$2" in
+            on)
+                echo none > "$PWR/trigger" 2>/dev/null || true
+                echo 1 > "$PWR/brightness"
+                echo "Red (PWR) -> ON"
+                ;;
+            off)
+                echo none > "$PWR/trigger" 2>/dev/null || true
+                echo 0 > "$PWR/brightness"
+                echo "Red (PWR) -> OFF"
+                ;;
+            heartbeat)
+                echo heartbeat > "$PWR/trigger"
+                echo "Red (PWR) -> HEARTBEAT"
+                ;;
+            default-on)
+                echo default-on > "$PWR/trigger"
+                echo "Red (PWR) -> DEFAULT-ON"
+                ;;
+            *)
+                echo "Usage: kiosk-led red {on|off|heartbeat|default-on}"
+                exit 1
+                ;;
+        esac
+        ;;
+    triggers)
+        echo "=== Available Triggers for Green (ACT) ==="
+        [ -n "$ACT" ] && cat "$ACT/trigger"
+        echo ""
+        echo "=== Available Triggers for Red (PWR) ==="
+        [ -n "$PWR" ] && cat "$PWR/trigger"
+        ;;
+    *)
+        echo "Raspberry Pi LED Experimentation Tool"
+        echo "Usage:"
+        echo "  kiosk-led status                     - Show LED brightness & triggers"
+        echo "  kiosk-led triggers                   - Show all available kernel triggers"
+        echo "  kiosk-led green on|off|blink|heartbeat|mmc"
+        echo "  kiosk-led red on|off|heartbeat|default-on"
+        exit 1
+        ;;
+esac
