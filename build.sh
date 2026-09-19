@@ -93,9 +93,9 @@ fi
 echo "--> Extracting base image to $TARGET_RAW..."
 xz -dc "$DIETPI_IMG_XZ" > "$TARGET_RAW"
 
-# 4. Resize virtual disk image to 1800MB (ensures fit on 2GB cards)
-echo "--> Resizing image file to 1800MB (2GB SD card compatibility)..."
-truncate -s 1800M "$TARGET_RAW"
+# 4. Resize virtual disk image to 1024MB (Compact 1.0GB image for fast flashing)
+echo "--> Resizing image file to 1024MB (Compact 1.0GB layout for fast flashing)..."
+truncate -s 1024M "$TARGET_RAW"
 
 # 5. Setup loopback device
 echo "--> Attaching loopback device..."
@@ -104,15 +104,15 @@ sleep 1
 
 # 6. Adjust Partition Table:
 # - Partition 1: Boot (FAT32, ~134MB)
-# - Partition 2: RootFS (ext4, ~1316MB, ends at 1450MB)
-# - Partition 3: Media (FAT32, ~350MB, fills remaining space)
-echo "--> Partitioning: Expanding RootFS (Part 2) to 1450MB..."
-parted -s "$LOOP_DEV" resizepart 2 1450MiB
+# - Partition 2: RootFS (ext4, ~785MB, ends at 920MB)
+# - Partition 3: Media (FAT32, ~104MB, fills remaining space to 1024MB)
+echo "--> Partitioning: Expanding RootFS (Part 2) to 920MiB..."
+parted -s "$LOOP_DEV" resizepart 2 920MiB
 e2fsck -f -y "${LOOP_DEV}p2" || true
 resize2fs "${LOOP_DEV}p2"
 
 echo "--> Partitioning: Creating Partition 3 (FAT32 Media, 'VIDEOS')..."
-parted -s "$LOOP_DEV" mkpart primary fat32 1450MiB 100%
+parted -s "$LOOP_DEV" mkpart primary fat32 920MiB 100%
 parted -s "$LOOP_DEV" set 3 lba on
 partprobe "$LOOP_DEV" 2>/dev/null || true
 sleep 1
