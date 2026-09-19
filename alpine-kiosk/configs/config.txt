@@ -19,6 +19,8 @@ disable_splash=1
 boot_delay=0
 
 # Hardware Clock & Power Stability (Prevents undervoltage / brownout resets)
+# Initial Turbo: Run CPU at maximum burst clock for first 20s to unpack into RAM fast, then settle at 1000 MHz
+initial_turbo=20
 arm_freq=1000
 arm_freq_min=600
 core_freq=400

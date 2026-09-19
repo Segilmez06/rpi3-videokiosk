@@ -118,9 +118,8 @@ cp "${CACHE_DIR}/APKINDEX-community.tar.gz" "${COMM_INDEX_DIR}/APKINDEX.tar.gz"
 tar -Oxz -f "${CACHE_DIR}/APKINDEX-main.tar.gz" APKINDEX \
     | grep -E '^P:' | cut -c3- | sort -u > "${BUILD_DIR}/main.list"
 
-# Fetch packages recursively if not already cached
-# Core kiosk package world: alpine-base eudev mesa-dri-gallium mpv alsa-utils v4l-utils
-REQUIRED_PKGS=(alpine-base eudev mesa-dri-gallium mpv alsa-utils v4l-utils)
+# Core kiosk package world: alpine-base eudev mesa-dri-gallium mpv
+REQUIRED_PKGS=(alpine-base eudev mesa-dri-gallium mpv)
 
 echo "[*] Resolving and downloading packages with apk.static..."
 "${APK_STATIC}" fetch \
@@ -160,6 +159,11 @@ cp "${SCRIPT_DIR}/configs/cmdline.txt" "${STAGING_DIR}/cmdline.txt"
 # ------------------------------------------------------------------------------
 echo "[*] Building appliance overlay archive (rpi3-kiosk.apkovl.tar.gz)..."
 APKOVL_FILE="${STAGING_DIR}/rpi3-kiosk.apkovl.tar.gz"
+
+mkdir -p "${SCRIPT_DIR}/overlay/usr/share/videokiosk"
+if [ -f "${ROOT_DIR}/assets/no-media.png" ]; then
+    cp "${ROOT_DIR}/assets/no-media.png" "${SCRIPT_DIR}/overlay/usr/share/videokiosk/no-media.png"
+fi
 
 # Create apkovl tar.gz preserving root ownership
 tar -czf "${APKOVL_FILE}" \

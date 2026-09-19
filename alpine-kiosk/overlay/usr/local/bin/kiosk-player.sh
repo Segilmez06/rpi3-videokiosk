@@ -2,6 +2,7 @@
 # Raspberry Pi 3 Video Kiosk Playback Engine
 # Seamless Multi-Video Playlist Support with Smart In-RAM VFS Caching
 # Hardware Acceleration: DRM KMS + V4L2 M2M Video Decode (VC4 Gallium)
+# Visual Feedback: 1080p No-Media Graphic & Diagnostic Blink when empty
 
 export HOME=/root
 export XDG_RUNTIME_DIR=/run/user/0
@@ -10,6 +11,7 @@ chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null
 
 RAM_VIDEOS_DIR="/run/kiosk-videos"
 PLAYLIST_FILE="/run/kiosk-playlist.txt"
+NO_MEDIA_IMG="/usr/share/videokiosk/no-media.png"
 MAX_RAM_CACHE_KB=460800  # 450 MB safe RAM threshold (leaves ~400MB free for MPV & kernel)
 
 # Ensure Red PWR LED is completely disabled
@@ -29,19 +31,23 @@ done
 
 # Locate the active media directory containing video files
 locate_source_dir() {
-    # Check standard SD card path
-    if [ -d "/media/mmcblk0p1/videos" ] && [ -n "$(find /media/mmcblk0p1/videos -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.webm" -o -iname "*.ts" \) 2>/dev/null)" ]; then
-        echo "/media/mmcblk0p1/videos"
-        return 0
+    # 1. Check standard SD card path
+    if [ -d "/media/mmcblk0p1/videos" ]; then
+        if [ -n "$(find /media/mmcblk0p1/videos -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.webm" -o -iname "*.ts" \) 2>/dev/null)" ]; then
+            echo "/media/mmcblk0p1/videos"
+            return 0
+        fi
     fi
 
-    # Check root videos path if mounted
-    if [ -d "/videos" ] && [ -n "$(find /videos -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.webm" -o -iname "*.ts" \) 2>/dev/null)" ]; then
-        echo "/videos"
-        return 0
+    # 2. Check root videos path if mounted
+    if [ -d "/videos" ]; then
+        if [ -n "$(find /videos -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.webm" -o -iname "*.ts" \) 2>/dev/null)" ]; then
+            echo "/videos"
+            return 0
+        fi
     fi
 
-    # Check any USB drives mounted under /media
+    # 3. Check any USB drives mounted under /media
     for dir in /media/*; do
         if [ -d "$dir/videos" ] && [ "$dir" != "/media/mmcblk0p1" ]; then
             if [ -n "$(find "$dir/videos" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.webm" -o -iname "*.ts" \) 2>/dev/null)" ]; then
@@ -51,7 +57,7 @@ locate_source_dir() {
         fi
     done
 
-    # Fallback to bundled demo directory
+    # 4. Fallback: check if demo sample exists in /usr/share/videokiosk
     if [ -f "/usr/share/videokiosk/sample.mp4" ]; then
         echo "/usr/share/videokiosk"
         return 0
@@ -71,6 +77,7 @@ prepare_playlist() {
     # 2. Locate source folder
     SRC_DIR=$(locate_source_dir)
     if [ -z "$SRC_DIR" ]; then
+        rm -f "$PLAYLIST_FILE"
         return 1
     fi
 
@@ -83,7 +90,7 @@ prepare_playlist() {
     TOTAL_KB=${TOTAL_KB:-999999}
     TOTAL_MB=$((TOTAL_KB / 1024))
 
-    # 4. If small enough and not already in internal fallback, copy all files to RAM
+    # 4. If small enough and not internal fallback, copy all files to RAM
     if [ "$TOTAL_KB" -le "$MAX_RAM_CACHE_KB" ] && [ "$SRC_DIR" != "/usr/share/videokiosk" ]; then
         echo "[kiosk-player] Total video payload (${TOTAL_MB} MB, ${VIDEO_COUNT} files) fits in RAM. Copying to tmpfs RAM..." >&2
         mkdir -p "$RAM_VIDEOS_DIR"
@@ -142,8 +149,8 @@ while true; do
             [ -d "$act" ] && echo 1 > "$act/brightness" 2>/dev/null || true
         done
     else
-        echo "[kiosk-player] No video files found in /media/mmcblk0p1/videos. Checking again in 3s..." >&2
-        # Diagnostic alert: blink Green ACT LED fast to indicate waiting for media
+        echo "[kiosk-player] No video files found. Displaying no-media screen & blinking LED..." >&2
+        # Diagnostic alert: blink Green ACT LED fast (250ms) to indicate waiting for media
         for act in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act*; do
             if [ -d "$act" ]; then
                 echo timer > "$act/trigger" 2>/dev/null || true
@@ -151,6 +158,22 @@ while true; do
                 echo 250 > "$act/delay_off" 2>/dev/null || true
             fi
         done
+
+        # Display full-screen 1080p No-Media graphic for 3 seconds, then re-check
+        if [ -f "$NO_MEDIA_IMG" ]; then
+            /usr/bin/mpv \
+                --config-dir=/etc/mpv \
+                --vo=gpu \
+                --gpu-context=drm \
+                --drm-connector=HDMI-A-1 \
+                --image-display-duration=3 \
+                --loop-file=1 \
+                --really-quiet \
+                --terminal=no \
+                "$NO_MEDIA_IMG" 2>/dev/null || sleep 2
+        else
+            sleep 2
+        fi
     fi
 
     sleep 1
