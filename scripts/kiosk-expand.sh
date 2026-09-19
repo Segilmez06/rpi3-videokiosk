@@ -9,23 +9,17 @@ if [ -f "$FLAG_FILE" ]; then
     exit 0
 fi
 
-# Safe LED helpers: checks directory and file existence before writing to eliminate any "No such file" errors
+# Safe LED helpers: controls LEDs purely via brightness (1=on, 0=off) without touching trigger
 all_leds_off() {
-    for dir in /sys/class/leds/*; do
-        if [ -d "$dir" ]; then
-            [ -w "$dir/trigger" ] && echo none > "$dir/trigger" 2>/dev/null || true
-            [ -w "$dir/brightness" ] && echo 0 > "$dir/brightness" 2>/dev/null || true
-        fi
+    for b in /sys/class/leds/*/brightness; do
+        [ -w "$b" ] && echo 0 > "$b" 2>/dev/null || true
     done
 }
 
 # Red LED stays OFF always. Green ACT LED ON during first-boot setup only.
 all_leds_off
-for dir in /sys/class/leds/*act* /sys/class/leds/*ACT* /sys/class/leds/led0; do
-    if [ -d "$dir" ]; then
-        [ -w "$dir/trigger" ] && echo default-on > "$dir/trigger" 2>/dev/null || true
-        [ -w "$dir/brightness" ] && echo 1 > "$dir/brightness" 2>/dev/null || true
-    fi
+for b in /sys/class/leds/*act*/brightness /sys/class/leds/*ACT*/brightness /sys/class/leds/led0/brightness; do
+    [ -w "$b" ] && echo 1 > "$b" 2>/dev/null || true
 done
 
 # Direct output to tty1 console (HDMI)

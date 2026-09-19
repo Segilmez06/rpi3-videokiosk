@@ -22,7 +22,7 @@ done
 
 # Wait for media directory to be available
 while [ ! -d "$MEDIA_DIR" ]; do
-    sleep 2
+    sleep 0.1
 done
 
 while true; do

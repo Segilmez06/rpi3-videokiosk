@@ -1,15 +1,17 @@
 [Unit]
 Description=Raspberry Pi 3 Headless Video Kiosk Player
+DefaultDependencies=no
 After=local-fs.target kiosk-expand.service
 Wants=kiosk-expand.service
-Conflicts=getty@tty1.service
+Conflicts=getty@tty1.service shutdown.target
+Before=shutdown.target
 
 [Service]
 Type=simple
 User=root
 ExecStart=/usr/local/bin/kiosk-player.sh
 Restart=always
-RestartSec=2
+RestartSec=1
 StandardInput=null
 StandardOutput=null
 StandardError=journal
@@ -18,4 +20,4 @@ TTYReset=yes
 TTYVHangup=yes
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=basic.target

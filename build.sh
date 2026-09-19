@@ -245,6 +245,36 @@ chroot "$MNT_DIR" /bin/bash -c "
     systemctl mask systemd-random-seed.service || true
 "
 
+# 13b. Configure Instant Root Auto-login on Serial Console (ttyAMA0)
+# Uses Type=simple (instead of Type=idle) so it starts immediately without waiting for other jobs
+echo "--> Configuring instant root autologin on UART (ttyAMA0)..."
+mkdir -p "$MNT_DIR/etc/systemd/system/serial-getty@ttyAMA0.service.d"
+cat << 'EOF' > "$MNT_DIR/etc/systemd/system/serial-getty@ttyAMA0.service.d/autologin.conf"
+[Service]
+Type=simple
+ExecStart=
+ExecStart=-/sbin/agetty --autologin root --noclear -s %I 115200 vt220
+EOF
+
+# 13c. Configure Global Systemd Fast Timeouts (eliminate 90s/120s stalls)
+echo "--> Configuring fast systemd timeouts (10s max)..."
+mkdir -p "$MNT_DIR/etc/systemd/system.conf.d"
+cat << 'EOF' > "$MNT_DIR/etc/systemd/system.conf.d/00-timeouts.conf"
+[Manager]
+DefaultTimeoutStartSec=10s
+DefaultTimeoutStopSec=5s
+EOF
+
+# 13d. Configure Non-Blocking Ethernet (allow-hotplug avoids DHCP stall when unplugged)
+echo "--> Configuring non-blocking network interfaces..."
+cat << 'EOF' > "$MNT_DIR/etc/network/interfaces"
+auto lo
+iface lo inet loopback
+
+allow-hotplug eth0
+iface eth0 inet dhcp
+EOF
+
 # 14. Configure /etc/fstab for SD Wear Reduction and Read-Only Media Mount
 echo "--> Configuring /etc/fstab..."
 if ! grep -q "/media/videos" "$MNT_DIR/etc/fstab"; then
