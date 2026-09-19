@@ -6,6 +6,7 @@
 
 MEDIA_DIR="/media/videos"
 CONFIG_DIR="/etc/mpv"
+FALLBACK_IMG="/usr/local/share/kiosk/no-media.png"
 
 # Ensure cursor is hidden and screen is blanked
 setterm -cursor off > /dev/tty1 2>/dev/null || true
@@ -28,12 +29,25 @@ while true; do
         -iname "*.ts" \
     \) 2>/dev/null | sort -V)
 
-    # If no videos found, wait silently without consuming CPU
+    # If no videos found, display the fallback image
     if [ ${#VIDEOS[@]} -eq 0 ]; then
-        # Keep screen blank
-        setterm -cursor off > /dev/tty1 2>/dev/null || true
-        clear > /dev/tty1 2>/dev/null || true
-        sleep 4
+        if [ -f "$FALLBACK_IMG" ]; then
+            mpv \
+                --config-dir="$CONFIG_DIR" \
+                --vo=gpu \
+                --gpu-context=drm \
+                --no-audio \
+                --image-display-duration=4 \
+                --no-terminal \
+                --cursor-autohide=always \
+                --term-playing-msg="" \
+                --msg-level=all=no \
+                "$FALLBACK_IMG" >/dev/null 2>&1
+        else
+            setterm -cursor off > /dev/tty1 2>/dev/null || true
+            clear > /dev/tty1 2>/dev/null || true
+            sleep 4
+        fi
         continue
     fi
 

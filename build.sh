@@ -18,6 +18,8 @@ BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CACHE_DIR="$BASE_DIR/cache"
 BUILD_DIR="$BASE_DIR/build"
 OUTPUT_DIR="$BASE_DIR/output"
+APT_CACHE_DIR="$CACHE_DIR/apt-archives"
+APT_LISTS_DIR="$CACHE_DIR/apt-lists"
 
 DIETPI_IMG_URL="https://dietpi.com/downloads/images/DietPi_RPi234-ARMv8-Bookworm.img.xz"
 DIETPI_IMG_XZ="$CACHE_DIR/DietPi_RPi234-ARMv8-Bookworm.img.xz"
@@ -27,12 +29,14 @@ TARGET_XZ="$OUTPUT_DIR/rpi3-videokiosk.img.xz"
 MNT_DIR="$BUILD_DIR/mnt"
 LOOP_DEV=""
 
-mkdir -p "$CACHE_DIR" "$BUILD_DIR" "$OUTPUT_DIR"
+mkdir -p "$CACHE_DIR" "$BUILD_DIR" "$OUTPUT_DIR" "$APT_CACHE_DIR/partial" "$APT_LISTS_DIR/partial"
 
 cleanup() {
     echo "--> Running cleanup..."
     set +e
     if [ -d "$MNT_DIR" ]; then
+        umount -l "$MNT_DIR/var/cache/apt/archives" 2>/dev/null || true
+        umount -l "$MNT_DIR/var/lib/apt/lists" 2>/dev/null || true
         umount -l "$MNT_DIR/dev/pts" 2>/dev/null || true
         umount -l "$MNT_DIR/dev" 2>/dev/null || true
         umount -l "$MNT_DIR/proc" 2>/dev/null || true
@@ -117,6 +121,12 @@ mkdir -p "$MNT_DIR/tmp"
 mount -t tmpfs -o mode=1777 tmpfs "$MNT_DIR/tmp"
 cp /etc/resolv.conf "$MNT_DIR/etc/resolv.conf"
 
+# Persistent APT cache bind mounts (speeds up subsequent builds with zero network downloads)
+mkdir -p "$MNT_DIR/var/cache/apt/archives/partial"
+mkdir -p "$MNT_DIR/var/lib/apt/lists/partial"
+mount --bind "$APT_CACHE_DIR" "$MNT_DIR/var/cache/apt/archives"
+mount --bind "$APT_LISTS_DIR" "$MNT_DIR/var/lib/apt/lists"
+
 # 8. Prevent service auto-start and sandbox restrictions during chroot install
 cat << 'EOF' > "$MNT_DIR/usr/sbin/policy-rc.d"
 #!/bin/sh
@@ -127,7 +137,7 @@ chmod +x "$MNT_DIR/usr/sbin/policy-rc.d"
 mkdir -p "$MNT_DIR/etc/apt/apt.conf.d"
 echo 'APT::Sandbox::User "root";' > "$MNT_DIR/etc/apt/apt.conf.d/01sandbox"
 
-# 9. Provision RootFS via QEMU AArch64
+# 9. Provision RootFS via QEMU AArch64 (uses persistent APT cache)
 echo "--> Installing packages inside chroot (mpv, fatresize, openssh, zram, DRM)..."
 cp /usr/bin/qemu-aarch64-static "$MNT_DIR/usr/bin/qemu-aarch64-static"
 chroot "$MNT_DIR" /bin/bash -c "
@@ -145,13 +155,14 @@ chroot "$MNT_DIR" /bin/bash -c "
         mesa-va-drivers \
         libdrm2 \
         libgbm1
-
-    apt-get clean
-    rm -rf /var/lib/apt/lists/*
 "
 rm -f "$MNT_DIR/usr/bin/qemu-aarch64-static"
 rm -f "$MNT_DIR/usr/sbin/policy-rc.d"
 rm -f "$MNT_DIR/etc/apt/apt.conf.d/01sandbox"
+
+# Unmount persistent cache so image rootfs contains 0MB cached debs
+umount -l "$MNT_DIR/var/cache/apt/archives" 2>/dev/null || true
+umount -l "$MNT_DIR/var/lib/apt/lists" 2>/dev/null || true
 umount -l "$MNT_DIR/tmp" 2>/dev/null || true
 
 # 10. Install Kiosk Scripts and Services
@@ -164,6 +175,11 @@ chmod +x "$MNT_DIR/usr/local/bin/kiosk-player.sh" "$MNT_DIR/usr/local/bin/kiosk-
 
 cp "$BASE_DIR/scripts/kiosk-player.service" "$MNT_DIR/etc/systemd/system/kiosk-player.service"
 cp "$BASE_DIR/scripts/kiosk-expand.service" "$MNT_DIR/etc/systemd/system/kiosk-expand.service"
+
+mkdir -p "$MNT_DIR/usr/local/share/kiosk"
+if [ -f "$BASE_DIR/assets/no-media.png" ]; then
+    cp "$BASE_DIR/assets/no-media.png" "$MNT_DIR/usr/local/share/kiosk/no-media.png"
+fi
 
 # 11. Configure SSH Public Keys
 echo "--> Configuring authorized SSH keys..."
