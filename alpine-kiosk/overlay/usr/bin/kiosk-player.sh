@@ -35,6 +35,66 @@ while [ ! -e /dev/dri/card0 ] && [ $count -lt 50 ]; do
     count=$((count + 1))
 done
 
+# Background SD & USB replug watcher: detects card re-insertion or USB drive insertion and triggers reboot
+start_replug_watcher() {
+    (
+        # Wait until kiosk has completed initial startup
+        while [ ! -f /run/kiosk-ready ]; do
+            sleep 1
+        done
+        sleep 5
+
+        # Check whether SD card was present initially
+        was_sd_present=0
+        if grep -q "mmcblk0" /proc/partitions 2>/dev/null; then
+            was_sd_present=1
+        fi
+
+        while true; do
+            sleep 1
+
+            # 1. Detect USB thumb drive insertion
+            if grep -qE "sd[a-z][0-9]" /proc/partitions 2>/dev/null; then
+                if [ ! -f /run/kiosk-rebooting ]; then
+                    touch /run/kiosk-rebooting
+                    echo "[kiosk-replug] USB media drive detected! Clean reboot in 2s to load new content..." >&2
+                    echo timer > /sys/class/leds/ACT/trigger 2>/dev/null || true
+                    echo 50 > /sys/class/leds/ACT/delay_on 2>/dev/null || true
+                    echo 50 > /sys/class/leds/ACT/delay_off 2>/dev/null || true
+                    echo none > /sys/class/leds/PWR/trigger 2>/dev/null || true
+                    echo 0 > /sys/class/leds/PWR/brightness 2>/dev/null || true
+                    sleep 2
+                    sync
+                    reboot
+                fi
+            fi
+
+            # 2. Detect SD card re-insertion
+            if grep -q "mmcblk0" /proc/partitions 2>/dev/null; then
+                if [ "$was_sd_present" -eq 0 ]; then
+                    if [ ! -f /run/kiosk-rebooting ]; then
+                        touch /run/kiosk-rebooting
+                        echo "[kiosk-replug] SD card re-inserted! Clean reboot in 2s to load new content..." >&2
+                        echo timer > /sys/class/leds/ACT/trigger 2>/dev/null || true
+                        echo 50 > /sys/class/leds/ACT/delay_on 2>/dev/null || true
+                        echo 50 > /sys/class/leds/ACT/delay_off 2>/dev/null || true
+                        echo none > /sys/class/leds/PWR/trigger 2>/dev/null || true
+                        echo 0 > /sys/class/leds/PWR/brightness 2>/dev/null || true
+                        sleep 2
+                        sync
+                        reboot
+                    fi
+                fi
+                was_sd_present=1
+            else
+                # SD card physically removed
+                was_sd_present=0
+            fi
+        done
+    ) > /dev/null 2>&1 &
+}
+start_replug_watcher
+
 # Locate the active media directory containing video files
 locate_source_dir() {
     # 1. Check standard SD card path
@@ -156,10 +216,9 @@ while true; do
 
         # Launch MPV with seamless playlist looping and prefetching
         /usr/bin/mpv \
-            --config-dir=/etc/mpv \
+            --no-config \
             --vo=gpu \
             --gpu-context=drm \
-            --hwdec=v4l2m2m-copy,auto-safe \
             --loop-playlist=inf \
             --no-audio \
             --cursor-autohide=always \
@@ -198,7 +257,7 @@ while true; do
         # Display full-screen 1080p No-Media graphic for 3 seconds, then re-check
         if [ -f "$NO_MEDIA_IMG" ]; then
             /usr/bin/mpv \
-                --config-dir=/etc/mpv \
+                --no-config \
                 --vo=gpu \
                 --gpu-context=drm \
                 --image-display-duration=3 \
