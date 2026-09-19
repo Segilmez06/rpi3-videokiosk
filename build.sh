@@ -73,6 +73,22 @@ else
     echo "--> Using cached DietPi image: $DIETPI_IMG_XZ"
 fi
 
+# Pre-clean any stale mounts or loop devices from previously aborted runs
+echo "--> Checking for and cleaning any stale mounts or loops..."
+while findmnt -n -l -o TARGET | grep -q "$MNT_DIR"; do
+    findmnt -n -l -o TARGET | grep "$MNT_DIR" | sort -r | while read -r m; do
+        echo "Unmounting stale mount: $m"
+        umount -l "$m" 2>/dev/null || true
+    done
+    sleep 1
+done
+if [ -f "$TARGET_RAW" ]; then
+    losetup -j "$TARGET_RAW" -O NAME --noheadings 2>/dev/null | while read -r l; do
+        echo "Detaching stale loop device: $l"
+        losetup -d "$l" 2>/dev/null || true
+    done
+fi
+
 # 3. Extract raw image
 echo "--> Extracting base image to $TARGET_RAW..."
 xz -dc "$DIETPI_IMG_XZ" > "$TARGET_RAW"
