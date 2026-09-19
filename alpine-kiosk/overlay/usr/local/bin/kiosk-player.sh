@@ -57,12 +57,6 @@ locate_source_dir() {
         fi
     done
 
-    # 4. Fallback: check if demo sample exists in /usr/share/videokiosk
-    if [ -f "/usr/share/videokiosk/sample.mp4" ]; then
-        echo "/usr/share/videokiosk"
-        return 0
-    fi
-
     return 1
 }
 
@@ -90,8 +84,8 @@ prepare_playlist() {
     TOTAL_KB=${TOTAL_KB:-999999}
     TOTAL_MB=$((TOTAL_KB / 1024))
 
-    # 4. If small enough and not internal fallback, copy all files to RAM
-    if [ "$TOTAL_KB" -le "$MAX_RAM_CACHE_KB" ] && [ "$SRC_DIR" != "/usr/share/videokiosk" ]; then
+    # 4. If small enough, copy all files to RAM
+    if [ "$TOTAL_KB" -le "$MAX_RAM_CACHE_KB" ]; then
         echo "[kiosk-player] Total video payload (${TOTAL_MB} MB, ${VIDEO_COUNT} files) fits in RAM. Copying to tmpfs RAM..." >&2
         mkdir -p "$RAM_VIDEOS_DIR"
 

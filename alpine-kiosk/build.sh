@@ -176,11 +176,9 @@ cp "${APKOVL_FILE}" "${STAGING_DIR}/localhost.apkovl.tar.gz"
 # ------------------------------------------------------------------------------
 # 8. Setup Videos Directory
 # ------------------------------------------------------------------------------
-echo "[*] Setting up /videos directory with sample media..."
+echo "[*] Setting up empty /videos directory for user media..."
 mkdir -p "${STAGING_DIR}/videos"
-if [ -f "${ROOT_DIR}/assets/sample-1080p.mp4" ]; then
-    cp "${ROOT_DIR}/assets/sample-1080p.mp4" "${STAGING_DIR}/videos/sample.mp4"
-fi
+
 
 # ------------------------------------------------------------------------------
 # 9. Output Format A: SD Card Extraction Archive (.tar.gz)
