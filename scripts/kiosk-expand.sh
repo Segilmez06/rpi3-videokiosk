@@ -9,17 +9,26 @@ if [ -f "$FLAG_FILE" ]; then
     exit 0
 fi
 
-# Green ACT LED ON during first-boot setup only. Red PWR LED stays OFF always.
-echo none   > /sys/class/leds/PWR/trigger    2>/dev/null || true
-echo 0      > /sys/class/leds/PWR/brightness 2>/dev/null || true
-echo none   > /sys/class/leds/led1/trigger   2>/dev/null || true
-echo 0      > /sys/class/leds/led1/brightness 2>/dev/null || true
-echo default-on > /sys/class/leds/ACT/trigger    2>/dev/null || true
-echo 1          > /sys/class/leds/ACT/brightness 2>/dev/null || true
-echo default-on > /sys/class/leds/led0/trigger   2>/dev/null || true
-echo 1          > /sys/class/leds/led0/brightness 2>/dev/null || true
+# Safe LED helpers: checks directory and file existence before writing to eliminate any "No such file" errors
+all_leds_off() {
+    for dir in /sys/class/leds/*; do
+        if [ -d "$dir" ]; then
+            [ -w "$dir/trigger" ] && echo none > "$dir/trigger" 2>/dev/null || true
+            [ -w "$dir/brightness" ] && echo 0 > "$dir/brightness" 2>/dev/null || true
+        fi
+    done
+}
 
-# Direct output to tty1 console
+# Red LED stays OFF always. Green ACT LED ON during first-boot setup only.
+all_leds_off
+for dir in /sys/class/leds/*act* /sys/class/leds/*ACT* /sys/class/leds/led0; do
+    if [ -d "$dir" ]; then
+        [ -w "$dir/trigger" ] && echo default-on > "$dir/trigger" 2>/dev/null || true
+        [ -w "$dir/brightness" ] && echo 1 > "$dir/brightness" 2>/dev/null || true
+    fi
+done
+
+# Direct output to tty1 console (HDMI)
 exec > /dev/tty1 2>&1
 setterm -cursor off > /dev/tty1 2>/dev/null || true
 clear > /dev/tty1 2>/dev/null || true
@@ -54,6 +63,7 @@ echo -e "  ${WHITE}• Storage Device:${RESET}         ${CYAN}/dev/${DISK_DEV}${
 if [ ! -b "$DISK_PATH" ] || [ ! -b "$PART3_PATH" ]; then
     echo -e "  ${YELLOW}[!] Warning: Partition 3 not found on $DISK_PATH, skipping resize.${RESET}"
     touch "$FLAG_FILE"
+    sync
     sleep 3
     exit 0
 fi
@@ -82,21 +92,19 @@ mount -a 2>/dev/null || true
 echo -e "  ${WHITE}• Display Acceleration:${RESET}   ${CYAN}VideoCore IV (DRM/KMS Direct)${RESET}        ${GREEN}[  OK  ]${RESET}"
 
 # Turn green ACT LED OFF permanently — no LEDs once kiosk is running
-echo none > /sys/class/leds/ACT/trigger    2>/dev/null || true
-echo 0    > /sys/class/leds/ACT/brightness 2>/dev/null || true
-echo none > /sys/class/leds/led0/trigger   2>/dev/null || true
-echo 0    > /sys/class/leds/led0/brightness 2>/dev/null || true
+all_leds_off
 
-# 5. Done — write flag file NOW and force sync before the user sees success.
-#    This gives the ext4 journal time to commit before they might cut power.
+# 5. Done — write flag file NOW, force sync, and remount root as read-only.
+#    Remounting / as read-only protects ext4 metadata against sudden power cuts
+#    when the user unplugs the Pi to insert video media.
 touch "$FLAG_FILE"
 sync
+mount -o remount,ro / 2>/dev/null || true
 
 echo ""
 echo -e "${CYAN}  ──────────────────────────────────────────────────────────────${RESET}"
 echo -e "  ${GREEN}✔ First-boot configuration completed successfully!${RESET}"
 echo -e "  ${WHITE}Starting video playback in 3 seconds...${RESET}"
 sleep 3
-sync   # second sync — belt-and-suspenders
 clear
 exit 0

@@ -262,15 +262,20 @@ cp "$BASE_DIR/assets/authorized_keys" "$MNT_DIR/boot/authorized_keys"
 # Clean up chroot networking file
 rm -f "$MNT_DIR/etc/resolv.conf"
 
-# 16. Unmount cleanly
-echo "--> Unmounting filesystems..."
-umount -l "$MNT_DIR/dev/pts" 2>/dev/null || true
-umount -l "$MNT_DIR/dev" 2>/dev/null || true
-umount -l "$MNT_DIR/proc" 2>/dev/null || true
-umount -l "$MNT_DIR/sys" 2>/dev/null || true
-umount -l "$MNT_DIR/boot" 2>/dev/null || true
-umount -l "$MNT_DIR" 2>/dev/null || true
+# 16. Unmount cleanly and verify filesystem integrity
+echo "--> Unmounting filesystems and syncing..."
+sync
+umount "$MNT_DIR/boot" 2>/dev/null || umount -l "$MNT_DIR/boot" 2>/dev/null || true
+umount "$MNT_DIR/dev/pts" 2>/dev/null || umount -l "$MNT_DIR/dev/pts" 2>/dev/null || true
+umount "$MNT_DIR/dev" 2>/dev/null || umount -l "$MNT_DIR/dev" 2>/dev/null || true
+umount "$MNT_DIR/proc" 2>/dev/null || umount -l "$MNT_DIR/proc" 2>/dev/null || true
+umount "$MNT_DIR/sys" 2>/dev/null || umount -l "$MNT_DIR/sys" 2>/dev/null || true
+sync
+umount "$MNT_DIR" 2>/dev/null || umount -l "$MNT_DIR" 2>/dev/null || true
 rm -rf "$MNT_DIR"
+
+echo "--> Verifying RootFS filesystem integrity..."
+e2fsck -f -y "${LOOP_DEV}p2"
 
 losetup -d "$LOOP_DEV"
 LOOP_DEV=""
