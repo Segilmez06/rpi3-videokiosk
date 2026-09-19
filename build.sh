@@ -243,7 +243,21 @@ chroot "$MNT_DIR" /bin/bash -c "
     systemctl mask e2scrub_all.timer || true
     systemctl mask fstrim.timer || true
     systemctl mask systemd-random-seed.service || true
+    systemctl mask dietpi-firstboot.service || true
+    systemctl mask dietpi-fs_partition_resize.service || true
 "
+
+# 13a. Pre-mark DietPi setup as 100% completed to completely bypass the OOBE wizard
+echo "--> Bypassing DietPi first-boot wizard (setting install_stage=2)..."
+mkdir -p "$MNT_DIR/boot/dietpi" "$MNT_DIR/var/lib/dietpi"
+echo 2 > "$MNT_DIR/boot/dietpi/.install_stage"
+echo 2 > "$MNT_DIR/var/lib/dietpi/.install_stage" 2>/dev/null || true
+touch "$MNT_DIR/boot/dietpi/.installed"
+touch "$MNT_DIR/var/lib/dietpi/.installed" 2>/dev/null || true
+
+# Remove DietPi login script interceptor so UART and SSH drop directly into clean bash prompt
+rm -f "$MNT_DIR/etc/profile.d/dietpi-login.sh"
+rm -f "$MNT_DIR/etc/bashrc.d/dietpi.bash" 2>/dev/null || true
 
 # 13b. Configure Instant Root Auto-login on Serial Console (ttyAMA0)
 # Uses Type=simple (instead of Type=idle) so it starts immediately without waiting for other jobs

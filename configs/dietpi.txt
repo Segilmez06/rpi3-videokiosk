@@ -1,10 +1,13 @@
 # DietPi Automation Configuration for Headless Video Kiosk
 # -------------------------------------------------------------
 AUTO_SETUP_AUTOMATED=1
+AUTO_SETUP_HEADLESS=1
+AUTO_SETUP_NET_HOSTNAME=rpi3-kiosk
 AUTO_SETUP_GLOBAL_PASSWORD=dietpi
 AUTO_SETUP_LOCALE=en_US.UTF-8
 AUTO_SETUP_KEYBOARD_LAYOUT=us
 AUTO_SETUP_TIMEZONE=UTC
+CONFIG_APT_MIRROR=default
 
 # Network: Offline/Non-blocking boot
 AUTO_SETUP_BOOT_WAIT_FOR_NETWORK=0
