@@ -243,8 +243,8 @@ chroot "$MNT_DIR" /bin/bash -c "
     systemctl mask e2scrub_all.timer || true
     systemctl mask fstrim.timer || true
     systemctl mask systemd-random-seed.service || true
-    systemctl mask dietpi-firstboot.service || true
-    systemctl mask dietpi-fs_partition_resize.service || true
+    ln -sf /dev/null /etc/systemd/system/dietpi-firstboot.service
+    ln -sf /dev/null /etc/systemd/system/dietpi-fs_partition_resize.service
 "
 
 # 13a. Pre-mark DietPi setup as 100% completed to completely bypass the OOBE wizard
