@@ -87,12 +87,16 @@ echo 0    > /sys/class/leds/ACT/brightness 2>/dev/null || true
 echo none > /sys/class/leds/led0/trigger   2>/dev/null || true
 echo 0    > /sys/class/leds/led0/brightness 2>/dev/null || true
 
-# 5. Done
+# 5. Done — write flag file NOW and force sync before the user sees success.
+#    This gives the ext4 journal time to commit before they might cut power.
+touch "$FLAG_FILE"
+sync
+
 echo ""
 echo -e "${CYAN}  ──────────────────────────────────────────────────────────────${RESET}"
 echo -e "  ${GREEN}✔ First-boot configuration completed successfully!${RESET}"
 echo -e "  ${WHITE}Starting video playback in 3 seconds...${RESET}"
 sleep 3
+sync   # second sync — belt-and-suspenders
 clear
-touch "$FLAG_FILE"
 exit 0

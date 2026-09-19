@@ -3,6 +3,7 @@ Description=One-shot Media Partition Auto-Expander
 DefaultDependencies=no
 After=local-fs.target
 Before=kiosk-player.service
+ConditionPathExists=!/etc/kiosk-expanded
 
 [Service]
 Type=oneshot
