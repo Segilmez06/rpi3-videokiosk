@@ -1,0 +1,14 @@
+# Build artifacts & raw images
+*.img
+*.img.xz
+*.iso
+*.tar
+*.tar.gz
+cache/
+output/
+tmp/
+
+# Logs & temp files
+*.log
+*.tmp
+.DS_Store

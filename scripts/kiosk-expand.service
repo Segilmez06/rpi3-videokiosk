@@ -1,0 +1,15 @@
+[Unit]
+Description=One-shot Media Partition Auto-Expander
+DefaultDependencies=no
+After=local-fs.target
+Before=kiosk-player.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/kiosk-expand.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

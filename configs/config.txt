@@ -1,0 +1,16 @@
+# Raspberry Pi 3 Video Kiosk - Firmware Configuration
+# Silent boot
+disable_splash=1
+boot_delay=0
+
+# Architecture
+arm_64bit=1
+
+# DRM/KMS Display & GPU allocation for hardware video decoding
+dtoverlay=vc4-kms-v3d
+gpu_mem=128
+hdmi_force_hotplug=1
+
+# Power & peripheral defaults
+camera_auto_detect=0
+display_auto_detect=1
