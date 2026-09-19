@@ -1,5 +1,9 @@
 #!/bin/sh
-# Turn off all Raspberry Pi on-board LEDs (Red PWR and Green ACT)
-for led in /sys/class/leds/*; do
-    [ -e "$led/brightness" ] && echo 0 > "$led/brightness" 2>/dev/null || true
+# Ensure Red PWR LED is off during boot
+for led in /sys/class/leds/PWR /sys/class/leds/led1 /sys/class/leds/*pwr*; do
+    if [ -d "$led" ]; then
+        echo none > "$led/trigger" 2>/dev/null || true
+        echo 0 > "$led/brightness" 2>/dev/null || true
+    fi
 done
+

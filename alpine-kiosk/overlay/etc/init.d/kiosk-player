@@ -13,9 +13,3 @@ depend() {
     after udev mdev
 }
 
-start_pre() {
-    # Ensure Red and Green LEDs are completely turned off
-    for led in /sys/class/leds/*; do
-        [ -e "$led/brightness" ] && echo 0 > "$led/brightness" 2>/dev/null || true
-    done
-}

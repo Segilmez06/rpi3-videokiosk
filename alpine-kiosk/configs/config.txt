@@ -35,6 +35,11 @@ dtoverlay=disable-bt
 # Audio (Silent playback by default)
 dtparam=audio=off
 
-# Stealth Status LEDs (Hardware triggers permanently disabled)
-dtparam=act_led_trigger=none
+# Status LED Configuration
+# Red PWR LED: Permanently disabled from firmware boot
 dtparam=pwr_led_trigger=none
+dtparam=pwr_led_activelow=off
+
+# Green ACT LED: Solid ON during boot, turns OFF when MPV starts
+dtparam=act_led_trigger=default-on
+

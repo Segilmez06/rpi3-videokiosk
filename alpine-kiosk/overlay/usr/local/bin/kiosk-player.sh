@@ -7,9 +7,12 @@ export XDG_RUNTIME_DIR=/run/user/0
 mkdir -p "$XDG_RUNTIME_DIR" 2>/dev/null
 chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null
 
-# Turn off all on-board LEDs (stealth mode)
-for led in /sys/class/leds/*; do
-    [ -e "$led/brightness" ] && echo 0 > "$led/brightness" 2>/dev/null || true
+# Ensure Red PWR LED is completely disabled
+for pwr in /sys/class/leds/PWR /sys/class/leds/led1 /sys/class/leds/*pwr*; do
+    if [ -d "$pwr" ]; then
+        echo none > "$pwr/trigger" 2>/dev/null || true
+        echo 0 > "$pwr/brightness" 2>/dev/null || true
+    fi
 done
 
 # Wait for DRM KMS device node (/dev/dri/card0)
@@ -66,6 +69,14 @@ while true; do
     if [ -n "$VIDEOS" ]; then
         echo "[kiosk-player] Starting MPV playback loop..." >&2
 
+        # Video starting -> Turn Green ACT LED completely OFF (stealth playback)
+        for act in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act*; do
+            if [ -d "$act" ]; then
+                echo none > "$act/trigger" 2>/dev/null || true
+                echo 0 > "$act/brightness" 2>/dev/null || true
+            fi
+        done
+
         # shellcheck disable=SC2086
         /usr/bin/mpv \
             --config-dir=/etc/mpv \
@@ -82,8 +93,20 @@ while true; do
             $VIDEOS
         
         echo "[kiosk-player] MPV exited with code $?, restarting in 1s..." >&2
+        # Restore Green LED ON while recovering/reloading
+        for act in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act*; do
+            [ -d "$act" ] && echo 1 > "$act/brightness" 2>/dev/null || true
+        done
     else
         echo "[kiosk-player] No video files found. Checking again in 3s..." >&2
+        # Diagnostic alert: blink Green ACT LED fast to indicate waiting for media
+        for act in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act*; do
+            if [ -d "$act" ]; then
+                echo timer > "$act/trigger" 2>/dev/null || true
+                echo 250 > "$act/delay_on" 2>/dev/null || true
+                echo 250 > "$act/delay_off" 2>/dev/null || true
+            fi
+        done
     fi
 
     sleep 1
