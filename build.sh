@@ -123,6 +123,7 @@ chmod +x "$MNT_DIR/usr/sbin/policy-rc.d"
 
 # 9. Provision RootFS via QEMU AArch64
 echo "--> Installing packages inside chroot (mpv, fatresize, openssh, zram, DRM)..."
+cp /usr/bin/qemu-aarch64-static "$MNT_DIR/usr/bin/qemu-aarch64-static"
 chroot "$MNT_DIR" /bin/bash -c "
     export DEBIAN_FRONTEND=noninteractive
     export LC_ALL=C
@@ -141,6 +142,7 @@ chroot "$MNT_DIR" /bin/bash -c "
     apt-get clean
     rm -rf /var/lib/apt/lists/*
 "
+rm -f "$MNT_DIR/usr/bin/qemu-aarch64-static"
 rm -f "$MNT_DIR/usr/sbin/policy-rc.d"
 
 # 10. Install Kiosk Scripts and Services
