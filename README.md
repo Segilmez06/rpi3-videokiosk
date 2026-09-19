@@ -38,7 +38,7 @@ A reproducible, headless, silent video kiosk appliance for the Raspberry Pi 3 (A
 +-------------------+----------------------------+----------------------------------+
 | Partition 1       | Partition 2                | Partition 3                      |
 | /boot (FAT32)     | / (ext4 rootfs)            | /media/videos (FAT32)            |
-| ~128 MB           | ~785 MB (~130MB free)      | Expands to fill 100% of remaining |
+| ~128 MB           | ~1.1 GB (~400MB free)      | Expands to fill 100% of remaining |
 | Boot firmware     | DietPi + mpv + RAM log     | Mounts RO during video playback  |
 | Visible to PC     | Hidden on Windows          | Visible & writable on PC/Mac     |
 +-------------------+----------------------------+----------------------------------+
