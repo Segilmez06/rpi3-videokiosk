@@ -31,33 +31,33 @@ def patch_initramfs(initramfs_path):
 
         target1 = "$MOCK mount -t sysfs -o noexec,nosuid,nodev sysfs /sys"
         code1 = """$MOCK mount -t sysfs -o noexec,nosuid,nodev sysfs /sys
-# Video Kiosk: Red LED blinking 100ms delay while copying image to RAM
-for _p in /sys/class/leds/PWR /sys/class/leds/led1 /sys/class/leds/*pwr*; do
-    if [ -d "$_p" ]; then
-        echo timer > "$_p/trigger" 2>/dev/null || true
-        echo 100 > "$_p/delay_on" 2>/dev/null || true
-        echo 100 > "$_p/delay_off" 2>/dev/null || true
-    fi
-done
+# Video Kiosk: Green ACT blinking 100ms delay while copying image to RAM; Red PWR OFF
 for _a in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act*; do
     if [ -d "$_a" ]; then
-        echo none > "$_a/trigger" 2>/dev/null || true
-        echo 0 > "$_a/brightness" 2>/dev/null || true
+        echo timer > "$_a/trigger" 2>/dev/null || true
+        echo 100 > "$_a/delay_on" 2>/dev/null || true
+        echo 100 > "$_a/delay_off" 2>/dev/null || true
     fi
-done"""
-
-        target2 = "exec switch_root $switch_root_opts $sysroot $chart_init \"$KOPT_init\" $KOPT_init_args"
-        code2 = """# Video Kiosk: Copying image to RAM complete -> Red OFF, Green SOLID ON
+done
 for _p in /sys/class/leds/PWR /sys/class/leds/led1 /sys/class/leds/*pwr*; do
     if [ -d "$_p" ]; then
         echo none > "$_p/trigger" 2>/dev/null || true
         echo 0 > "$_p/brightness" 2>/dev/null || true
     fi
-done
+done"""
+
+        target2 = "exec switch_root $switch_root_opts $sysroot $chart_init \"$KOPT_init\" $KOPT_init_args"
+        code2 = """# Video Kiosk: Copying image to RAM complete -> Green ACT STABLE (SOLID ON), Red PWR OFF
 for _a in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act*; do
     if [ -d "$_a" ]; then
         echo none > "$_a/trigger" 2>/dev/null || true
         echo 1 > "$_a/brightness" 2>/dev/null || true
+    fi
+done
+for _p in /sys/class/leds/PWR /sys/class/leds/led1 /sys/class/leds/*pwr*; do
+    if [ -d "$_p" ]; then
+        echo none > "$_p/trigger" 2>/dev/null || true
+        echo 0 > "$_p/brightness" 2>/dev/null || true
     fi
 done
 exec switch_root $switch_root_opts $sysroot $chart_init "$KOPT_init" $KOPT_init_args"""

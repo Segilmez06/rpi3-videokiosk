@@ -95,23 +95,29 @@ prepare_playlist() {
         echo "[kiosk-player] Total video payload (${TOTAL_MB} MB, ${VIDEO_COUNT} files) fits in RAM. Copying to tmpfs RAM..." >&2
         mkdir -p "$RAM_VIDEOS_DIR"
 
-        # Red LED blinking 100ms delay while copying media to RAM
+        # Green ACT blinking 100ms delay while copying media to RAM; Red PWR OFF
+        for act in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act*; do
+            if [ -d "$act" ]; then
+                echo timer > "$act/trigger" 2>/dev/null || true
+                echo 100 > "$act/delay_on" 2>/dev/null || true
+                echo 100 > "$act/delay_off" 2>/dev/null || true
+            fi
+        done
         for pwr in /sys/class/leds/PWR /sys/class/leds/led1 /sys/class/leds/*pwr*; do
             if [ -d "$pwr" ]; then
-                echo timer > "$pwr/trigger" 2>/dev/null || true
-                echo 100 > "$pwr/delay_on" 2>/dev/null || true
-                echo 100 > "$pwr/delay_off" 2>/dev/null || true
+                echo none > "$pwr/trigger" 2>/dev/null || true
+                echo 0 > "$pwr/brightness" 2>/dev/null || true
             fi
         done
 
         # Copy each video file safely preserving full filenames with spaces
         find "$SRC_DIR" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.webm" -o -iname "*.ts" \) -exec cp -p {} "$RAM_VIDEOS_DIR/" \;
 
-        # After copying done: Red is gone (OFF), Green remains solid ON
-        for pwr in /sys/class/leds/PWR /sys/class/leds/led1 /sys/class/leds/*pwr*; do
-            if [ -d "$pwr" ]; then
-                echo none > "$pwr/trigger" 2>/dev/null || true
-                echo 0 > "$pwr/brightness" 2>/dev/null || true
+        # After copying done: Green returns to stable SOLID ON, Red remains OFF
+        for act in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act*; do
+            if [ -d "$act" ]; then
+                echo none > "$act/trigger" 2>/dev/null || true
+                echo 1 > "$act/brightness" 2>/dev/null || true
             fi
         done
 
@@ -137,11 +143,11 @@ while true; do
         VIDEO_COUNT=$(wc -l < "$PLAYLIST_FILE")
         echo "[kiosk-player] Starting MPV with $VIDEO_COUNT video(s) in seamless playlist loop..." >&2
 
-        # Video playback starting -> Turn Green ACT LED completely OFF (stealth playback)
-        for act in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act*; do
-            if [ -d "$act" ]; then
-                echo none > "$act/trigger" 2>/dev/null || true
-                echo 0 > "$act/brightness" 2>/dev/null || true
+        # Video playback starting -> CLOSE ALL LEDS (stealth digital signage playback)
+        for led in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act* /sys/class/leds/PWR /sys/class/leds/led1 /sys/class/leds/*pwr*; do
+            if [ -d "$led" ]; then
+                echo none > "$led/trigger" 2>/dev/null || true
+                echo 0 > "$led/brightness" 2>/dev/null || true
             fi
         done
 
@@ -159,18 +165,27 @@ while true; do
             > /run/kiosk-mpv.log 2>&1
         
         echo "[kiosk-player] MPV exited with code $?, restarting playlist in 1s..." >&2
-        # Restore Green LED ON while recovering/reloading
+        # Restore Green LED STABLE (SOLID ON) while recovering/reloading, Red OFF
         for act in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act*; do
-            [ -d "$act" ] && echo 1 > "$act/brightness" 2>/dev/null || true
+            [ -d "$act" ] && echo none > "$act/trigger" 2>/dev/null && echo 1 > "$act/brightness" 2>/dev/null || true
+        done
+        for pwr in /sys/class/leds/PWR /sys/class/leds/led1 /sys/class/leds/*pwr*; do
+            [ -d "$pwr" ] && echo none > "$pwr/trigger" 2>/dev/null && echo 0 > "$pwr/brightness" 2>/dev/null || true
         done
     else
-        echo "[kiosk-player] No video files found. Displaying no-media screen & blinking LED..." >&2
-        # Diagnostic alert: blink Green ACT LED fast (250ms) to indicate waiting for media
+        echo "[kiosk-player] No video files found. Displaying no-media screen & blinking Red LED (100ms)..." >&2
+        # Attention / Error alert: Blink Red PWR LED 100ms, Green ACT is OFF
+        for pwr in /sys/class/leds/PWR /sys/class/leds/led1 /sys/class/leds/*pwr*; do
+            if [ -d "$pwr" ]; then
+                echo timer > "$pwr/trigger" 2>/dev/null || true
+                echo 100 > "$pwr/delay_on" 2>/dev/null || true
+                echo 100 > "$pwr/delay_off" 2>/dev/null || true
+            fi
+        done
         for act in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act*; do
             if [ -d "$act" ]; then
-                echo timer > "$act/trigger" 2>/dev/null || true
-                echo 250 > "$act/delay_on" 2>/dev/null || true
-                echo 250 > "$act/delay_off" 2>/dev/null || true
+                echo none > "$act/trigger" 2>/dev/null || true
+                echo 0 > "$act/brightness" 2>/dev/null || true
             fi
         done
 

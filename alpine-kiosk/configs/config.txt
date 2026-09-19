@@ -38,9 +38,10 @@ dtoverlay=disable-bt
 dtparam=audio=off
 
 # Status LED Configuration
-# Red PWR LED: Timer trigger enabled from early firmware boot
-dtparam=pwr_led_trigger=timer
+# Green ACT LED: Timer trigger enabled from early firmware boot (100ms blink activated in early boot)
+dtparam=act_led_trigger=timer
 
-# Green ACT LED: Dark during early boot while Red blinks, turns solid ON once RAM copy is complete
-dtparam=act_led_trigger=none
+# Red PWR LED: Disabled by default (only blinks as error alert if no media files exist)
+dtparam=pwr_led_trigger=none
+dtparam=pwr_led_activelow=off
 

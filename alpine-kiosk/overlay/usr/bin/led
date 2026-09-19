@@ -63,9 +63,9 @@ case "$1" in
                 ;;
             blink|timer)
                 echo timer > "$ACT/trigger"
-                echo 250 > "$ACT/delay_on" 2>/dev/null || true
-                echo 250 > "$ACT/delay_off" 2>/dev/null || true
-                echo "Green (ACT) -> BLINK (250ms on / 250ms off)"
+                echo 100 > "$ACT/delay_on" 2>/dev/null || true
+                echo 100 > "$ACT/delay_off" 2>/dev/null || true
+                echo "Green (ACT) -> BLINK (100ms on / 100ms off)"
                 ;;
             mmc|activity)
                 echo mmc0 > "$ACT/trigger"
