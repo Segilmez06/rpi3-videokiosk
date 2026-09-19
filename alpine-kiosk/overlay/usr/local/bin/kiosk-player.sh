@@ -1,7 +1,7 @@
 #!/bin/sh
 # Raspberry Pi 3 Video Kiosk Playback Engine
-# Runs MPV with DRM KMS direct output and V4L2 M2M hardware acceleration
-# Supports Smart In-RAM VFS caching (allows physically ejecting the SD card!)
+# Seamless Multi-Video Playlist Support with Smart In-RAM VFS Caching
+# Hardware Acceleration: DRM KMS + V4L2 M2M Video Decode (VC4 Gallium)
 
 export HOME=/root
 export XDG_RUNTIME_DIR=/run/user/0
@@ -9,6 +9,7 @@ mkdir -p "$XDG_RUNTIME_DIR" 2>/dev/null
 chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null
 
 RAM_VIDEOS_DIR="/run/kiosk-videos"
+PLAYLIST_FILE="/run/kiosk-playlist.txt"
 MAX_RAM_CACHE_KB=460800  # 450 MB safe RAM threshold (leaves ~400MB free for MPV & kernel)
 
 # Ensure Red PWR LED is completely disabled
@@ -26,96 +27,93 @@ while [ ! -e /dev/dri/card0 ] && [ $count -lt 50 ]; do
     count=$((count + 1))
 done
 
-# Discover videos on physical storage (SD card, USB, or bundled fallback)
-find_source_videos() {
+# Locate the active media directory containing video files
+locate_source_dir() {
     # Check standard SD card path
-    if [ -d "/media/mmcblk0p1/videos" ]; then
-        videos=$(find /media/mmcblk0p1/videos -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.webm" -o -iname "*.ts" \) | sort)
-        if [ -n "$videos" ]; then
-            echo "$videos"
-            return 0
-        fi
+    if [ -d "/media/mmcblk0p1/videos" ] && [ -n "$(find /media/mmcblk0p1/videos -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.webm" -o -iname "*.ts" \) 2>/dev/null)" ]; then
+        echo "/media/mmcblk0p1/videos"
+        return 0
     fi
 
     # Check root videos path if mounted
-    if [ -d "/videos" ]; then
-        videos=$(find /videos -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.webm" -o -iname "*.ts" \) | sort)
-        if [ -n "$videos" ]; then
-            echo "$videos"
-            return 0
-        fi
+    if [ -d "/videos" ] && [ -n "$(find /videos -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.webm" -o -iname "*.ts" \) 2>/dev/null)" ]; then
+        echo "/videos"
+        return 0
     fi
 
     # Check any USB drives mounted under /media
     for dir in /media/*; do
         if [ -d "$dir/videos" ] && [ "$dir" != "/media/mmcblk0p1" ]; then
-            videos=$(find "$dir/videos" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.webm" -o -iname "*.ts" \) | sort)
-            if [ -n "$videos" ]; then
-                echo "$videos"
+            if [ -n "$(find "$dir/videos" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.webm" -o -iname "*.ts" \) 2>/dev/null)" ]; then
+                echo "$dir/videos"
                 return 0
             fi
         fi
     done
 
-    # Fallback to bundled demo asset
+    # Fallback to bundled demo directory
     if [ -f "/usr/share/videokiosk/sample.mp4" ]; then
-        echo "/usr/share/videokiosk/sample.mp4"
+        echo "/usr/share/videokiosk"
         return 0
     fi
 
     return 1
 }
 
-# Smart In-RAM VFS caching: Copies videos to tmpfs RAM and unmounts SD card
-setup_playback_media() {
-    # 1. Check if already cached in RAM
-    if [ -d "$RAM_VIDEOS_DIR" ]; then
-        cached_videos=$(find "$RAM_VIDEOS_DIR" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.webm" -o -iname "*.ts" \) | sort)
-        if [ -n "$cached_videos" ]; then
-            echo "$cached_videos"
-            return 0
-        fi
+# Generate playlist and handle RAM caching for multiple video files
+prepare_playlist() {
+    # 1. If RAM cache already exists and has videos, use it directly
+    if [ -d "$RAM_VIDEOS_DIR" ] && [ -n "$(find "$RAM_VIDEOS_DIR" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.webm" -o -iname "*.ts" \) 2>/dev/null)" ]; then
+        find "$RAM_VIDEOS_DIR" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.webm" -o -iname "*.ts" \) | sort > "$PLAYLIST_FILE"
+        return 0
     fi
 
-    # 2. Discover videos on physical storage
-    SRC_VIDEOS=$(find_source_videos)
-    [ -z "$SRC_VIDEOS" ] && return 1
+    # 2. Locate source folder
+    SRC_DIR=$(locate_source_dir)
+    if [ -z "$SRC_DIR" ]; then
+        return 1
+    fi
 
-    # 3. Calculate total payload size
-    # shellcheck disable=SC2086
-    total_kb=$(du -ck $SRC_VIDEOS 2>/dev/null | awk '/total$/ {print $1}')
-    total_kb=${total_kb:-999999}
-    total_mb=$((total_kb / 1024))
+    # Count total video files in source directory
+    VIDEO_COUNT=$(find "$SRC_DIR" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.webm" -o -iname "*.ts" \) 2>/dev/null | wc -l)
+    echo "[kiosk-player] Discovered $VIDEO_COUNT video file(s) in $SRC_DIR" >&2
 
-    # 4. If small enough, copy to RAM and unmount SD card
-    if [ "$total_kb" -le "$MAX_RAM_CACHE_KB" ]; then
-        echo "[kiosk-player] Videos size (${total_mb} MB) fits in RAM. Caching to tmpfs RAM..." >&2
+    # 3. Calculate total size of all videos in the source directory
+    TOTAL_KB=$(du -sk "$SRC_DIR" 2>/dev/null | awk '{print $1}')
+    TOTAL_KB=${TOTAL_KB:-999999}
+    TOTAL_MB=$((TOTAL_KB / 1024))
+
+    # 4. If small enough and not already in internal fallback, copy all files to RAM
+    if [ "$TOTAL_KB" -le "$MAX_RAM_CACHE_KB" ] && [ "$SRC_DIR" != "/usr/share/videokiosk" ]; then
+        echo "[kiosk-player] Total video payload (${TOTAL_MB} MB, ${VIDEO_COUNT} files) fits in RAM. Copying to tmpfs RAM..." >&2
         mkdir -p "$RAM_VIDEOS_DIR"
-        # shellcheck disable=SC2086
-        cp -u $SRC_VIDEOS "$RAM_VIDEOS_DIR/"
 
-        echo "[kiosk-player] In-RAM cache complete. Unmounting SD card (safe for physical hot-eject)..." >&2
-        sync
-        umount /media/mmcblk0p1 2>/dev/null || true
+        # Copy each video file safely preserving full filenames with spaces
+        find "$SRC_DIR" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.webm" -o -iname "*.ts" \) -exec cp -p {} "$RAM_VIDEOS_DIR/" \;
 
-        cached_videos=$(find "$RAM_VIDEOS_DIR" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.webm" -o -iname "*.ts" \) | sort)
-        echo "$cached_videos"
-        return 0
+        # Unmount SD card to allow physical hot-ejection
+        if [ "$SRC_DIR" = "/media/mmcblk0p1/videos" ]; then
+            echo "[kiosk-player] In-RAM cache complete. Unmounting SD card (safe for physical hot-eject)..." >&2
+            sync
+            umount /media/mmcblk0p1 2>/dev/null || true
+        fi
+
+        find "$RAM_VIDEOS_DIR" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.webm" -o -iname "*.ts" \) | sort > "$PLAYLIST_FILE"
     else
-        echo "[kiosk-player] Videos size (${total_mb} MB) exceeds RAM limit (450 MB). Streaming directly from storage." >&2
-        echo "$SRC_VIDEOS"
-        return 0
+        echo "[kiosk-player] Video payload (${TOTAL_MB} MB) exceeds RAM limit (450 MB) or is bundled demo. Streaming from disk." >&2
+        find "$SRC_DIR" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.webm" -o -iname "*.ts" \) | sort > "$PLAYLIST_FILE"
     fi
+
+    [ -s "$PLAYLIST_FILE" ]
 }
 
 # Main infinite playback supervisor loop
 while true; do
-    PLAY_VIDEOS=$(setup_playback_media)
+    if prepare_playlist; then
+        VIDEO_COUNT=$(wc -l < "$PLAYLIST_FILE")
+        echo "[kiosk-player] Starting MPV with $VIDEO_COUNT video(s) in seamless playlist loop..." >&2
 
-    if [ -n "$PLAY_VIDEOS" ]; then
-        echo "[kiosk-player] Starting MPV playback loop..." >&2
-
-        # Video starting -> Turn Green ACT LED completely OFF (stealth playback)
+        # Video playback starting -> Turn Green ACT LED completely OFF (stealth playback)
         for act in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act*; do
             if [ -d "$act" ]; then
                 echo none > "$act/trigger" 2>/dev/null || true
@@ -123,7 +121,7 @@ while true; do
             fi
         done
 
-        # shellcheck disable=SC2086
+        # Launch MPV with seamless playlist looping and prefetching
         /usr/bin/mpv \
             --config-dir=/etc/mpv \
             --vo=gpu \
@@ -136,15 +134,15 @@ while true; do
             --terminal=no \
             --cursor-autohide=always \
             --prefetch-playlist=yes \
-            $PLAY_VIDEOS
+            --playlist="$PLAYLIST_FILE"
         
-        echo "[kiosk-player] MPV exited with code $?, restarting in 1s..." >&2
+        echo "[kiosk-player] MPV exited with code $?, restarting playlist in 1s..." >&2
         # Restore Green LED ON while recovering/reloading
         for act in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act*; do
             [ -d "$act" ] && echo 1 > "$act/brightness" 2>/dev/null || true
         done
     else
-        echo "[kiosk-player] No video files found. Checking again in 3s..." >&2
+        echo "[kiosk-player] No video files found in /media/mmcblk0p1/videos. Checking again in 3s..." >&2
         # Diagnostic alert: blink Green ACT LED fast to indicate waiting for media
         for act in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act*; do
             if [ -d "$act" ]; then

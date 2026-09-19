@@ -22,10 +22,15 @@ case "$1" in
         echo "=== Active Media Location ==="
         if [ -d "/run/kiosk-videos" ] && [ -n "$(ls -A /run/kiosk-videos 2>/dev/null)" ]; then
             echo "Status: Running from IN-RAM tmpfs (SD card unmounted and safely ejectable!)"
-            ls -lh /run/kiosk-videos/
         else
             echo "Status: Streaming from physical storage"
-            ls -lh /media/mmcblk0p1/videos 2>/dev/null || echo "No /media/mmcblk0p1/videos directory."
+        fi
+        echo ""
+        echo "=== Active Playlist ==="
+        if [ -f "/run/kiosk-playlist.txt" ]; then
+            cat -n /run/kiosk-playlist.txt
+        else
+            echo "No active playlist file found."
         fi
         echo ""
         echo "=== Free RAM ==="
