@@ -12,11 +12,15 @@ FALLBACK_IMG="/usr/local/share/kiosk/no-media.png"
 setterm -cursor off > /dev/tty1 2>/dev/null || true
 clear > /dev/tty1 2>/dev/null || true
 
-# Turn off green activity LED during presentation so enclosure stays dark
-echo none > /sys/class/leds/ACT/trigger 2>/dev/null || true
-echo 0 > /sys/class/leds/ACT/brightness 2>/dev/null || true
-echo none > /sys/class/leds/led0/trigger 2>/dev/null || true
-echo 0 > /sys/class/leds/led0/brightness 2>/dev/null || true
+# Ensure both LEDs are OFF during presentation — no status indicators
+echo none > /sys/class/leds/ACT/trigger    2>/dev/null || true
+echo 0    > /sys/class/leds/ACT/brightness 2>/dev/null || true
+echo none > /sys/class/leds/led0/trigger   2>/dev/null || true
+echo 0    > /sys/class/leds/led0/brightness 2>/dev/null || true
+echo none > /sys/class/leds/PWR/trigger    2>/dev/null || true
+echo 0    > /sys/class/leds/PWR/brightness 2>/dev/null || true
+echo none > /sys/class/leds/led1/trigger   2>/dev/null || true
+echo 0    > /sys/class/leds/led1/brightness 2>/dev/null || true
 
 # Wait for media directory to be available
 while [ ! -d "$MEDIA_DIR" ]; do
@@ -57,19 +61,10 @@ while true; do
         continue
     fi
 
-    # Launch mpv with Direct Rendering Manager (DRM/KMS) hardware output
-    # All display configuration is loaded from /etc/mpv/mpv.conf
+    # Launch mpv — all tuning (hwdec, cache, sync) comes from /etc/mpv/mpv.conf
     mpv \
         --config-dir="$CONFIG_DIR" \
-        --vo=gpu \
-        --gpu-context=drm \
-        --hwdec=auto-safe \
-        --no-audio \
-        --loop-playlist=inf \
         --no-terminal \
-        --cursor-autohide=always \
-        --term-playing-msg="" \
-        --msg-level=all=no \
         "${VIDEOS[@]}" >/dev/null 2>&1
 
     # Brief delay if mpv exits before restarting the scan loop

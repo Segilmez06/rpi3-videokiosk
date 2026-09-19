@@ -24,8 +24,13 @@ dtparam=audio=off
 camera_auto_detect=0
 display_auto_detect=0
 
-# 4. Status LEDs: Kept enabled for power indication and initial boot activity
-# (Activity LED is automatically silenced by kiosk player once video begins)
+# 4. Status LEDs: Both LEDs disabled at firmware level.
+#    Green ACT will be re-enabled briefly by kiosk-expand.sh on first boot only.
+#    Red PWR is disabled permanently — never lights up.
+dtparam=act_led_trigger=none
+dtparam=act_led_activelow=off
+dtparam=pwr_led_trigger=none
+dtparam=pwr_led_activelow=off
 
 # 5. Cap Peak CPU Frequency to 1000 MHz (Default is 1200MHz on 3B / 1400MHz on 3B+)
 # Hardware H.264 video decoding uses VideoCore IV, requiring minimal CPU (<15%).

@@ -9,15 +9,15 @@ if [ -f "$FLAG_FILE" ]; then
     exit 0
 fi
 
-# Ensure Red LED is ON and Green ACT LED is OFF during setup
-echo default-on > /sys/class/leds/PWR/trigger 2>/dev/null || true
-echo 1 > /sys/class/leds/PWR/brightness 2>/dev/null || true
-echo none > /sys/class/leds/ACT/trigger 2>/dev/null || true
-echo 0 > /sys/class/leds/ACT/brightness 2>/dev/null || true
-echo default-on > /sys/class/leds/led1/trigger 2>/dev/null || true
-echo 1 > /sys/class/leds/led1/brightness 2>/dev/null || true
-echo none > /sys/class/leds/led0/trigger 2>/dev/null || true
-echo 0 > /sys/class/leds/led0/brightness 2>/dev/null || true
+# Green ACT LED ON during first-boot setup only. Red PWR LED stays OFF always.
+echo none   > /sys/class/leds/PWR/trigger    2>/dev/null || true
+echo 0      > /sys/class/leds/PWR/brightness 2>/dev/null || true
+echo none   > /sys/class/leds/led1/trigger   2>/dev/null || true
+echo 0      > /sys/class/leds/led1/brightness 2>/dev/null || true
+echo default-on > /sys/class/leds/ACT/trigger    2>/dev/null || true
+echo 1          > /sys/class/leds/ACT/brightness 2>/dev/null || true
+echo default-on > /sys/class/leds/led0/trigger   2>/dev/null || true
+echo 1          > /sys/class/leds/led0/brightness 2>/dev/null || true
 
 # Direct output to tty1 console
 exec > /dev/tty1 2>&1
@@ -66,14 +66,13 @@ partprobe "$DISK_PATH" 2>/dev/null || true
 udevadm settle 2>/dev/null || sleep 1
 echo -e "${GREEN}[  OK  ]${RESET}"
 
-# 3. Resizing FAT32 filesystem
-echo -ne "  ${WHITE}• Resizing FAT32 System:${RESET}  ${YELLOW}Optimizing allocation tables...${RESET}      "
-if command -v fatresize >/dev/null 2>&1; then
-    fatresize -s max "$PART3_PATH" >/dev/null 2>&1 || true
-else
-    fsck.vfat -a "$PART3_PATH" 2>/dev/null || true
-fi
-echo -e "\r  ${WHITE}• Resizing FAT32 System:${RESET}  ${CYAN}Capacity Maximized (Full SD)${RESET}         ${GREEN}[  OK  ]${RESET}"
+# 3. Reformat FAT32 filesystem with optimal cluster size for large SD cards.
+#    Using fatresize causes false 63% usage because the cluster size is inherited
+#    from the tiny 100MB stub at mkfs time. Reformatting with -s 128 (64KB clusters)
+#    is correct and safe — the VIDEOS partition is always empty on first boot.
+echo -ne "  ${WHITE}• Formatting Media FS:${RESET}    ${CYAN}FAT32 with 64K clusters (large-SD)...${RESET} "
+mkfs.vfat -F 32 -s 128 -n "VIDEOS" "$PART3_PATH" > /dev/null 2>&1
+echo -e "${GREEN}[  OK  ]${RESET}"
 
 # 4. Finalizing mounts
 echo -e "  ${WHITE}• Write Protection:${RESET}       ${CYAN}Read-Only Mode (Power-Safe)${RESET}          ${GREEN}[  OK  ]${RESET}"
@@ -82,9 +81,11 @@ mount -a 2>/dev/null || true
 
 echo -e "  ${WHITE}• Display Acceleration:${RESET}   ${CYAN}VideoCore IV (DRM/KMS Direct)${RESET}        ${GREEN}[  OK  ]${RESET}"
 
-# Restore natural green LED for future boot tracking
-echo mmc0 > /sys/class/leds/ACT/trigger 2>/dev/null || true
-echo mmc0 > /sys/class/leds/led0/trigger 2>/dev/null || true
+# Turn green ACT LED OFF permanently — no LEDs once kiosk is running
+echo none > /sys/class/leds/ACT/trigger    2>/dev/null || true
+echo 0    > /sys/class/leds/ACT/brightness 2>/dev/null || true
+echo none > /sys/class/leds/led0/trigger   2>/dev/null || true
+echo 0    > /sys/class/leds/led0/brightness 2>/dev/null || true
 
 # 5. Done
 echo ""

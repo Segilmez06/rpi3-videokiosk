@@ -154,7 +154,7 @@ mkdir -p "$MNT_DIR/etc/apt/apt.conf.d"
 echo 'APT::Sandbox::User "root";' > "$MNT_DIR/etc/apt/apt.conf.d/01sandbox"
 
 # 9. Provision RootFS via QEMU AArch64 (uses persistent APT cache)
-echo "--> Installing packages inside chroot (mpv, fatresize, openssh, zram, DRM)..."
+echo "--> Installing packages inside chroot (mpv, openssh, zram, DRM)..."
 cp /usr/bin/qemu-aarch64-static "$MNT_DIR/usr/bin/qemu-aarch64-static"
 chroot "$MNT_DIR" /bin/bash -c "
     set -euo pipefail
@@ -163,7 +163,6 @@ chroot "$MNT_DIR" /bin/bash -c "
     apt-get update
     apt-get install -y --no-install-recommends \
         mpv \
-        fatresize \
         openssh-server \
         zram-tools \
         parted \
@@ -236,6 +235,12 @@ chroot "$MNT_DIR" /bin/bash -c "
     systemctl mask apt-daily.timer || true
     systemctl mask apt-daily-upgrade.timer || true
     systemctl mask systemd-timesyncd.service || true
+    systemctl mask logrotate.timer || true
+    systemctl mask man-db.timer || true
+    systemctl mask dpkg-db-backup.timer || true
+    systemctl mask e2scrub_all.timer || true
+    systemctl mask fstrim.timer || true
+    systemctl mask systemd-random-seed.service || true
 "
 
 # 14. Configure /etc/fstab for SD Wear Reduction and Read-Only Media Mount
