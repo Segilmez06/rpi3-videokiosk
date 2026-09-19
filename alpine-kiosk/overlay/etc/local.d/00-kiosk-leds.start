@@ -1,9 +1,16 @@
 #!/bin/sh
-# Ensure Red PWR LED is off during boot
+# Video Kiosk: OS image copy to RAM complete -> Red is GONE (OFF), Green starts SOLID ON
 for led in /sys/class/leds/PWR /sys/class/leds/led1 /sys/class/leds/*pwr*; do
     if [ -d "$led" ]; then
         echo none > "$led/trigger" 2>/dev/null || true
         echo 0 > "$led/brightness" 2>/dev/null || true
+    fi
+done
+
+for led in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act*; do
+    if [ -d "$led" ]; then
+        echo none > "$led/trigger" 2>/dev/null || true
+        echo 1 > "$led/brightness" 2>/dev/null || true
     fi
 done
 

@@ -26,6 +26,9 @@ case "$1" in
             echo "  Brightness: $(cat "$ACT/brightness" 2>/dev/null)"
             echo "  Max Bright: $(cat "$ACT/max_brightness" 2>/dev/null)"
             echo "  Trigger:    $(cat "$ACT/trigger" 2>/dev/null | grep -o '\[.*\]')"
+            if [ -f "$ACT/delay_on" ]; then
+                echo "  Timer:      on=$(cat "$ACT/delay_on" 2>/dev/null)ms off=$(cat "$ACT/delay_off" 2>/dev/null)ms"
+            fi
         else
             echo "Green (ACT): Not found"
         fi
@@ -34,6 +37,9 @@ case "$1" in
             echo "  Brightness: $(cat "$PWR/brightness" 2>/dev/null)"
             echo "  Max Bright: $(cat "$PWR/max_brightness" 2>/dev/null)"
             echo "  Trigger:    $(cat "$PWR/trigger" 2>/dev/null | grep -o '\[.*\]')"
+            if [ -f "$PWR/delay_on" ]; then
+                echo "  Timer:      on=$(cat "$PWR/delay_on" 2>/dev/null)ms off=$(cat "$PWR/delay_off" 2>/dev/null)ms"
+            fi
         else
             echo "Red (PWR): Not found"
         fi
@@ -84,6 +90,12 @@ case "$1" in
                 echo 0 > "$PWR/brightness"
                 echo "Red (PWR) -> OFF"
                 ;;
+            blink|timer)
+                echo timer > "$PWR/trigger"
+                echo 100 > "$PWR/delay_on" 2>/dev/null || true
+                echo 100 > "$PWR/delay_off" 2>/dev/null || true
+                echo "Red (PWR) -> BLINK (100ms on / 100ms off)"
+                ;;
             heartbeat)
                 echo heartbeat > "$PWR/trigger"
                 echo "Red (PWR) -> HEARTBEAT"
@@ -93,7 +105,7 @@ case "$1" in
                 echo "Red (PWR) -> DEFAULT-ON"
                 ;;
             *)
-                echo "Usage: led red {on|off|heartbeat|default-on}"
+                echo "Usage: led red {on|off|blink|heartbeat|default-on}"
                 exit 1
                 ;;
         esac
@@ -111,7 +123,7 @@ case "$1" in
         echo "  led status                     - Show LED brightness & triggers"
         echo "  led triggers                   - Show all available kernel triggers"
         echo "  led green on|off|blink|heartbeat|mmc"
-        echo "  led red on|off|heartbeat|default-on"
+        echo "  led red on|off|blink|heartbeat|default-on"
         exit 1
         ;;
 esac

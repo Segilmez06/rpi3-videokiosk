@@ -14,11 +14,17 @@ PLAYLIST_FILE="/run/kiosk-playlist.txt"
 NO_MEDIA_IMG="/usr/share/videokiosk/no-media.png"
 MAX_RAM_CACHE_KB=460800  # 450 MB safe RAM threshold (leaves ~400MB free for MPV & kernel)
 
-# Ensure Red PWR LED is completely disabled
+# Video Kiosk Initial State: Red PWR is OFF, Green ACT starts SOLID ON
 for pwr in /sys/class/leds/PWR /sys/class/leds/led1 /sys/class/leds/*pwr*; do
     if [ -d "$pwr" ]; then
         echo none > "$pwr/trigger" 2>/dev/null || true
         echo 0 > "$pwr/brightness" 2>/dev/null || true
+    fi
+done
+for act in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act*; do
+    if [ -d "$act" ]; then
+        echo none > "$act/trigger" 2>/dev/null || true
+        echo 1 > "$act/brightness" 2>/dev/null || true
     fi
 done
 
@@ -89,8 +95,25 @@ prepare_playlist() {
         echo "[kiosk-player] Total video payload (${TOTAL_MB} MB, ${VIDEO_COUNT} files) fits in RAM. Copying to tmpfs RAM..." >&2
         mkdir -p "$RAM_VIDEOS_DIR"
 
+        # Red LED blinking 100ms delay while copying media to RAM
+        for pwr in /sys/class/leds/PWR /sys/class/leds/led1 /sys/class/leds/*pwr*; do
+            if [ -d "$pwr" ]; then
+                echo timer > "$pwr/trigger" 2>/dev/null || true
+                echo 100 > "$pwr/delay_on" 2>/dev/null || true
+                echo 100 > "$pwr/delay_off" 2>/dev/null || true
+            fi
+        done
+
         # Copy each video file safely preserving full filenames with spaces
         find "$SRC_DIR" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.webm" -o -iname "*.ts" \) -exec cp -p {} "$RAM_VIDEOS_DIR/" \;
+
+        # After copying done: Red is gone (OFF), Green remains solid ON
+        for pwr in /sys/class/leds/PWR /sys/class/leds/led1 /sys/class/leds/*pwr*; do
+            if [ -d "$pwr" ]; then
+                echo none > "$pwr/trigger" 2>/dev/null || true
+                echo 0 > "$pwr/brightness" 2>/dev/null || true
+            fi
+        done
 
         # Unmount SD card to allow physical hot-ejection
         if [ "$SRC_DIR" = "/media/mmcblk0p1/videos" ]; then

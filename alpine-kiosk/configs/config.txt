@@ -38,10 +38,9 @@ dtoverlay=disable-bt
 dtparam=audio=off
 
 # Status LED Configuration
-# Red PWR LED: Permanently disabled from firmware boot
-dtparam=pwr_led_trigger=none
-dtparam=pwr_led_activelow=off
+# Red PWR LED: Timer trigger enabled from early firmware boot
+dtparam=pwr_led_trigger=timer
 
-# Green ACT LED: Solid ON during boot, turns OFF when MPV starts
-dtparam=act_led_trigger=default-on
+# Green ACT LED: Dark during early boot while Red blinks, turns solid ON once RAM copy is complete
+dtparam=act_led_trigger=none
 

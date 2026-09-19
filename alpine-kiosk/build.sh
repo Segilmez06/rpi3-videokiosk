@@ -90,6 +90,12 @@ tar -xzf "${CACHE_DIR}/${TARBALL_NAME}" -C "${STAGING_DIR}"
 # Remove default apks folder from release tarball (we will generate full multi-repo structure)
 rm -rf "${STAGING_DIR}/apks"
 
+# Patch initramfs with hardware LED state machine (Red 100ms blink -> Green solid)
+if [ -f "${STAGING_DIR}/boot/initramfs-rpi" ]; then
+    echo "[*] Injecting hardware LED boot sequence into initramfs-rpi..."
+    python3 "${SCRIPT_DIR}/scripts/patch_initramfs.py" "${STAGING_DIR}/boot/initramfs-rpi"
+fi
+
 # ------------------------------------------------------------------------------
 # 5. Build Offline APK Repositories (Main & Community)
 # ------------------------------------------------------------------------------
