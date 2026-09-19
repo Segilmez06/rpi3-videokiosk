@@ -37,6 +37,7 @@ cleanup() {
         umount -l "$MNT_DIR/dev" 2>/dev/null || true
         umount -l "$MNT_DIR/proc" 2>/dev/null || true
         umount -l "$MNT_DIR/sys" 2>/dev/null || true
+        umount -l "$MNT_DIR/tmp" 2>/dev/null || true
         umount -l "$MNT_DIR/boot" 2>/dev/null || true
         umount -l "$MNT_DIR" 2>/dev/null || true
         rm -rf "$MNT_DIR" 2>/dev/null || true
@@ -112,19 +113,25 @@ mount --bind /dev "$MNT_DIR/dev"
 mount --bind /dev/pts "$MNT_DIR/dev/pts"
 mount --bind /proc "$MNT_DIR/proc"
 mount --bind /sys "$MNT_DIR/sys"
+mkdir -p "$MNT_DIR/tmp"
+mount -t tmpfs -o mode=1777 tmpfs "$MNT_DIR/tmp"
 cp /etc/resolv.conf "$MNT_DIR/etc/resolv.conf"
 
-# 8. Prevent service auto-start during apt installation
+# 8. Prevent service auto-start and sandbox restrictions during chroot install
 cat << 'EOF' > "$MNT_DIR/usr/sbin/policy-rc.d"
 #!/bin/sh
 exit 101
 EOF
 chmod +x "$MNT_DIR/usr/sbin/policy-rc.d"
 
+mkdir -p "$MNT_DIR/etc/apt/apt.conf.d"
+echo 'APT::Sandbox::User "root";' > "$MNT_DIR/etc/apt/apt.conf.d/01sandbox"
+
 # 9. Provision RootFS via QEMU AArch64
 echo "--> Installing packages inside chroot (mpv, fatresize, openssh, zram, DRM)..."
 cp /usr/bin/qemu-aarch64-static "$MNT_DIR/usr/bin/qemu-aarch64-static"
 chroot "$MNT_DIR" /bin/bash -c "
+    set -euo pipefail
     export DEBIAN_FRONTEND=noninteractive
     export LC_ALL=C
     apt-get update
@@ -144,6 +151,8 @@ chroot "$MNT_DIR" /bin/bash -c "
 "
 rm -f "$MNT_DIR/usr/bin/qemu-aarch64-static"
 rm -f "$MNT_DIR/usr/sbin/policy-rc.d"
+rm -f "$MNT_DIR/etc/apt/apt.conf.d/01sandbox"
+umount -l "$MNT_DIR/tmp" 2>/dev/null || true
 
 # 10. Install Kiosk Scripts and Services
 echo "--> Installing kiosk scripts and systemd services..."
