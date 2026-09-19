@@ -188,14 +188,22 @@ PERCENT=50
 PRIORITY=100
 EOF
 
-# 13. Enable Services and mask getty@tty1 (Zero UI)
-echo "--> Enabling systemd services and silencing TTY1..."
+# 13. Enable Services, mask unneeded background services, and silence TTY1
+echo "--> Enabling systemd services, power-saving masks, and silencing TTY1..."
 chroot "$MNT_DIR" /bin/bash -c "
     systemctl enable kiosk-player.service
     systemctl enable kiosk-expand.service
     systemctl enable ssh.service
     systemctl enable zramswap.service || true
     systemctl mask getty@tty1.service
+    systemctl mask bluetooth.service || true
+    systemctl mask hciuart.service || true
+    systemctl mask wpa_supplicant.service || true
+    systemctl mask apt-daily.service || true
+    systemctl mask apt-daily-upgrade.service || true
+    systemctl mask apt-daily.timer || true
+    systemctl mask apt-daily-upgrade.timer || true
+    systemctl mask systemd-timesyncd.service || true
 "
 
 # 14. Configure /etc/fstab for SD Wear Reduction and Read-Only Media Mount

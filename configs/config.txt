@@ -1,5 +1,6 @@
 # Raspberry Pi 3 Video Kiosk - Firmware Configuration
-# Silent boot
+# -------------------------------------------------------------
+# Silent Boot
 disable_splash=1
 boot_delay=0
 
@@ -11,6 +12,26 @@ dtoverlay=vc4-kms-v3d
 gpu_mem=128
 hdmi_force_hotplug=1
 
-# Power & peripheral defaults
+# --- Power, Thermal & Brownout Mitigations ---
+# 1. Disable Onboard WiFi and Bluetooth radios (saves ~150-200mA)
+dtoverlay=disable-wifi
+dtoverlay=disable-bt
+
+# 2. Disable Onboard Audio DAC (no audio needed, saves DAC & timer interrupts)
+dtparam=audio=off
+
+# 3. Disable Camera & DSI probing (reduces bus activity & power)
 camera_auto_detect=0
-display_auto_detect=1
+display_auto_detect=0
+
+# 4. Turn off status LEDs (keeps enclosure dark and saves extra current)
+dtparam=act_led_trigger=none
+dtparam=act_led_activelow=off
+dtparam=pwr_led_trigger=none
+dtparam=pwr_led_activelow=off
+
+# 5. Cap Peak CPU Frequency to 1000 MHz (Default is 1200MHz on 3B / 1400MHz on 3B+)
+# Hardware H.264 video decoding uses VideoCore IV, requiring minimal CPU (<15%).
+# Capping peak clock eliminates sudden current spikes that cause undervoltage.
+arm_freq=1000
+over_voltage=0
