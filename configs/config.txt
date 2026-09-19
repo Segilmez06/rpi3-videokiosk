@@ -24,11 +24,8 @@ dtparam=audio=off
 camera_auto_detect=0
 display_auto_detect=0
 
-# 4. Turn off status LEDs (keeps enclosure dark and saves extra current)
-dtparam=act_led_trigger=none
-dtparam=act_led_activelow=off
-dtparam=pwr_led_trigger=none
-dtparam=pwr_led_activelow=off
+# 4. Status LEDs: Kept enabled for power indication and initial boot activity
+# (Activity LED is automatically silenced by kiosk player once video begins)
 
 # 5. Cap Peak CPU Frequency to 1000 MHz (Default is 1200MHz on 3B / 1400MHz on 3B+)
 # Hardware H.264 video decoding uses VideoCore IV, requiring minimal CPU (<15%).

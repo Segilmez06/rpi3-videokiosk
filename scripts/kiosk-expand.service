@@ -8,8 +8,10 @@ Before=kiosk-player.service
 Type=oneshot
 ExecStart=/usr/local/bin/kiosk-expand.sh
 RemainAfterExit=yes
-StandardOutput=journal
-StandardError=journal
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+TTYReset=yes
 
 [Install]
 WantedBy=multi-user.target

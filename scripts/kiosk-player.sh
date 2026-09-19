@@ -12,6 +12,12 @@ FALLBACK_IMG="/usr/local/share/kiosk/no-media.png"
 setterm -cursor off > /dev/tty1 2>/dev/null || true
 clear > /dev/tty1 2>/dev/null || true
 
+# Turn off green activity LED during presentation so enclosure stays dark
+echo none > /sys/class/leds/ACT/trigger 2>/dev/null || true
+echo 0 > /sys/class/leds/ACT/brightness 2>/dev/null || true
+echo none > /sys/class/leds/led0/trigger 2>/dev/null || true
+echo 0 > /sys/class/leds/led0/brightness 2>/dev/null || true
+
 # Wait for media directory to be available
 while [ ! -d "$MEDIA_DIR" ]; do
     sleep 2
