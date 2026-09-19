@@ -143,6 +143,9 @@ while true; do
         VIDEO_COUNT=$(wc -l < "$PLAYLIST_FILE")
         echo "[kiosk-player] Starting MPV with $VIDEO_COUNT video(s) in seamless playlist loop..." >&2
 
+        # Signal that kiosk is fully ready for media replug events
+        touch /run/kiosk-ready
+
         # Video playback starting -> CLOSE ALL LEDS (stealth digital signage playback)
         for led in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act* /sys/class/leds/PWR /sys/class/leds/led1 /sys/class/leds/*pwr*; do
             if [ -d "$led" ]; then
@@ -188,6 +191,9 @@ while true; do
                 echo 0 > "$act/brightness" 2>/dev/null || true
             fi
         done
+
+        # Signal that kiosk is fully ready for media replug events
+        touch /run/kiosk-ready
 
         # Display full-screen 1080p No-Media graphic for 3 seconds, then re-check
         if [ -f "$NO_MEDIA_IMG" ]; then

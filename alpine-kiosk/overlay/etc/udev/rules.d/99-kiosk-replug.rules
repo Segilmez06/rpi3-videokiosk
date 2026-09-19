@@ -1,0 +1,5 @@
+# /etc/udev/rules.d/99-kiosk-replug.rules
+# Trigger automatic clean reboot when an SD card or USB drive is inserted with new media
+
+ACTION=="add", SUBSYSTEM=="block", KERNEL=="mmcblk0p1", RUN+="/usr/bin/kiosk-replug-handler.sh mmcblk0p1"
+ACTION=="add", SUBSYSTEM=="block", KERNEL=="sd[a-z]1", RUN+="/usr/bin/kiosk-replug-handler.sh %k"
