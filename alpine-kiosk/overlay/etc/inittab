@@ -4,11 +4,11 @@
 ::wait:/sbin/openrc default
 
 # Physical Serial UART Console on Raspberry Pi 3 (GPIO 14/15, Pins 8/10/6)
-# Instant unprompted root shell at 115200 baud with xterm-256color
-ttyAMA0::respawn:/sbin/getty -L 115200 ttyAMA0 xterm-256color -n -l /bin/sh
+# Instant unprompted root shell at 115200 baud with xterm-256color as login shell
+ttyAMA0::respawn:/sbin/getty -L 115200 ttyAMA0 xterm-256color -n -l /sbin/autologin
 
-# Virtual consoles
-tty1::respawn:/sbin/getty 38400 tty1
+# Virtual consoles (Disabled on HDMI for pure digital signage kiosk)
+# tty1 is intentionally not spawned to prevent any login prompt or shell on HDMI
 
 # System shutdown actions
 ::shutdown:/sbin/openrc shutdown

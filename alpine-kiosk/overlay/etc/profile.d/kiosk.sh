@@ -1,5 +1,6 @@
-# Terminal settings for physical serial console
 export TERM=xterm-256color
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
 
 # Uncap 80-column restriction and autodetect terminal size
 if [ -t 0 ]; then

@@ -5,7 +5,7 @@ name="kiosk-player"
 description="Raspberry Pi 3 Video Kiosk MPV Player"
 
 pidfile="/run/kiosk-player.pid"
-command="/usr/local/bin/kiosk-player.sh"
+command="/usr/bin/kiosk-player.sh"
 command_background="yes"
 
 depend() {
