@@ -254,17 +254,28 @@ while true; do
         # Signal that kiosk is fully ready for media replug events
         touch /run/kiosk-ready
 
-        # Display full-screen 1080p No-Media graphic for 3 seconds, then re-check
+        # Display full-screen 1080p No-Media graphic SOLID (no flashing!) until media is discovered
         if [ -f "$NO_MEDIA_IMG" ]; then
             /usr/bin/mpv \
                 --no-config \
                 --vo=gpu \
                 --gpu-context=drm \
-                --image-display-duration=3 \
-                --loop-file=1 \
-                "$NO_MEDIA_IMG" > /run/kiosk-mpv.log 2>&1 || sleep 2
+                --loop-file=inf \
+                "$NO_MEDIA_IMG" > /run/kiosk-mpv.log 2>&1 &
+            NO_MEDIA_PID=$!
+
+            # Stay on the static graphic until media files are found
+            while [ -z "$(locate_source_dir)" ]; do
+                sleep 2
+            done
+
+            # Media discovered! Cleanly terminate the static graphic
+            kill -9 "$NO_MEDIA_PID" 2>/dev/null || true
+            wait "$NO_MEDIA_PID" 2>/dev/null || true
         else
-            sleep 2
+            while [ -z "$(locate_source_dir)" ]; do
+                sleep 2
+            done
         fi
     fi
 
