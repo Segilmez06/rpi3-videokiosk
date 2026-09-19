@@ -245,6 +245,10 @@ xz -T0 -k -9 -f "$TARGET_IMG" -c > "$TARGET_XZ"
 echo "--> Generating SHA256 checksum..."
 (cd "$OUTPUT_DIR" && sha256sum "$(basename "$TARGET_XZ")" > "$(basename "$TARGET_XZ").sha256")
 
+if [ -n "${SUDO_USER:-}" ]; then
+    chown -R "$SUDO_USER:$SUDO_USER" "$OUTPUT_DIR" "$BUILD_DIR" "$CACHE_DIR" 2>/dev/null || true
+fi
+
 echo "========================================================"
 echo " BUILD SUCCESSFUL!"
 echo " Image created: $TARGET_XZ"
