@@ -17,6 +17,11 @@ hdmi_force_hotplug=1
 dtoverlay=disable-wifi
 dtoverlay=disable-bt
 
+# 2. UART: enable PL011 hardware UART on GPIO 14 (TX) / 15 (RX) at 115200 baud.
+#    disable-bt already frees PL011 from Bluetooth. enable_uart=1 maps it to the
+#    40-pin GPIO header so a USB-serial adapter can be used for console/debugging.
+enable_uart=1
+
 # 2. Disable Onboard Audio DAC (no audio needed, saves DAC & timer interrupts)
 dtparam=audio=off
 
