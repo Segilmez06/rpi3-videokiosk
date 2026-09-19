@@ -1,0 +1,33 @@
+#!/bin/sh
+# CLI control tool for Raspberry Pi 3 Video Kiosk
+
+case "$1" in
+    start)
+        /etc/init.d/kiosk-player start
+        ;;
+    stop)
+        /etc/init.d/kiosk-player stop
+        killall -9 mpv 2>/dev/null || true
+        ;;
+    restart)
+        /etc/init.d/kiosk-player restart
+        killall -9 mpv 2>/dev/null || true
+        ;;
+    status)
+        echo "=== Kiosk Player Service Status ==="
+        /etc/init.d/kiosk-player status
+        echo ""
+        echo "=== Active Processes ==="
+        ps aux | grep -E 'kiosk-player|mpv' | grep -v grep || echo "No active processes found."
+        echo ""
+        echo "=== Mounted Storage ==="
+        df -h /media/mmcblk0p1 2>/dev/null || df -h /
+        echo ""
+        echo "=== Videos on SD Card ==="
+        ls -lh /media/mmcblk0p1/videos 2>/dev/null || echo "No /media/mmcblk0p1/videos directory."
+        ;;
+    *)
+        echo "Usage: kiosk-player {start|stop|restart|status}"
+        exit 1
+        ;;
+esac

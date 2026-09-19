@@ -1,0 +1,4 @@
+# Kernel modules to load at boot
+vc4
+v3d
+bcm2835-codec

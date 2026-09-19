@@ -1,0 +1,6 @@
+alpine-base
+eudev
+mesa-dri-gallium
+mpv
+alsa-utils
+v4l-utils

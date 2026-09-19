@@ -7,6 +7,7 @@
 cache/
 output/
 tmp/
+alpine-kiosk/build/
 
 # Logs & temp files
 *.log

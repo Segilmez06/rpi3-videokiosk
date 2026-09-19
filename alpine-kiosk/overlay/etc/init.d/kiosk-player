@@ -1,0 +1,21 @@
+#!/sbin/openrc-run
+# OpenRC service for Video Kiosk Player
+
+name="kiosk-player"
+description="Raspberry Pi 3 Video Kiosk MPV Player"
+
+pidfile="/run/kiosk-player.pid"
+command="/usr/local/bin/kiosk-player.sh"
+command_background="yes"
+
+depend() {
+    need localmount
+    after udev mdev
+}
+
+start_pre() {
+    # Ensure Red and Green LEDs are completely turned off
+    for led in /sys/class/leds/*; do
+        [ -e "$led/brightness" ] && echo 0 > "$led/brightness" 2>/dev/null || true
+    done
+}

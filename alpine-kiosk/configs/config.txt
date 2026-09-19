@@ -1,0 +1,40 @@
+# Raspberry Pi 3 Model B (aarch64) Video Kiosk
+# Alpine Linux 3.24.2 - Diskless Run-from-RAM Architecture
+
+# Kernel & Architecture
+kernel=boot/vmlinuz-rpi
+initramfs boot/initramfs-rpi
+arm_64bit=1
+
+# Video & GPU Architecture (DRM KMS VC4 Gallium)
+dtoverlay=vc4-kms-v3d
+gpu_mem=128
+
+# Display & HDMI Timing
+hdmi_force_hotplug=1
+hdmi_group=1
+hdmi_mode=16
+disable_overscan=1
+disable_splash=1
+boot_delay=0
+
+# Hardware Clock & Power Stability (Prevents undervoltage / brownout resets)
+arm_freq=1000
+arm_freq_min=600
+core_freq=400
+sdram_freq=450
+over_voltage=0
+
+# Hardware UART Console (PL011 on GPIO 14/15 / ttyAMA0)
+enable_uart=1
+
+# Disable Unused Radios (Power saving & zero RF interference)
+dtoverlay=disable-wifi
+dtoverlay=disable-bt
+
+# Audio (Silent playback by default)
+dtparam=audio=off
+
+# Stealth Status LEDs (Hardware triggers permanently disabled)
+dtparam=act_led_trigger=none
+dtparam=pwr_led_trigger=none

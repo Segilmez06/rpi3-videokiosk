@@ -1,0 +1,4 @@
+# /etc/fstab - Alpine Linux Video Kiosk
+# Mount boot media read-only to ensure 100% immunity to power cuts
+/dev/mmcblk0p1 /media/mmcblk0p1 vfat ro,noatime,umask=000 0 0
+tmpfs /tmp tmpfs nodev,nosuid,size=128M 0 0
