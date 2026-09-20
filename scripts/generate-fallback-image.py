@@ -32,10 +32,24 @@ def find_inter_font():
         pass
     return None
 
+def load_font(font_path, size, weight=500):
+    if not font_path:
+        return ImageFont.load_default()
+    font = ImageFont.truetype(font_path, size=size)
+    try:
+        font.set_variation_by_axes([14, weight])
+    except Exception:
+        try:
+            font.set_variation_by_name("Medium" if weight == 500 else "Regular")
+        except Exception:
+            pass
+    return font
+
 def render_credits(img, font_path):
     draw = ImageDraw.Draw(img)
-    brand_font = ImageFont.truetype(font_path, size=22) if font_path else ImageFont.load_default()
-    credit_font = ImageFont.truetype(font_path, size=17) if font_path else ImageFont.load_default()
+    # Weight 500 (Medium - default 400 + 100)
+    brand_font = load_font(font_path, size=22, weight=500)
+    credit_font = load_font(font_path, size=17, weight=500)
 
     margin_x = 70
     margin_bottom = 55

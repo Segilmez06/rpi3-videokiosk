@@ -58,52 +58,27 @@ find_boot_splash() {
     return 1
 }
 
-# Display boot splash screen on HDMI during early boot & RAM copy
-show_boot_splash() {
-    # 1. Fast direct framebuffer blit if available
-    if [ -x /usr/bin/fbdraw ] && [ -e /dev/fb0 ]; then
-        for img in /media/mmcblk0p1/splash.ppm /usr/share/videokiosk/booting.ppm; do
-            if [ -f "$img" ]; then
-                /usr/bin/fbdraw "$img" /dev/fb0 2>/dev/null || true
-                return 0
-            fi
-        done
-    fi
-
-    # 2. Fallback to MPV DRM if already in default runlevel
-    [ -f /run/kiosk-splash.pid ] && return 0
+# Display boot splash screen on HDMI persistently
+present_boot_splash() {
     SPLASH=$(find_boot_splash)
-    if [ -n "$SPLASH" ]; then
-        ROT=$(read_orientation)
-        echo "[kiosk-player] Displaying boot splash ($SPLASH, rotate=$ROT deg)..." >&2
+    ROT=$(read_orientation)
+    if [ -n "$SPLASH" ] && [ -e /dev/dri/card0 ]; then
+        echo "[kiosk-player] Presenting boot splash for 4s ($SPLASH, rotate=$ROT deg)..." >&2
         /usr/bin/mpv \
             --no-config \
             --vo=gpu \
             --gpu-context=drm \
             --video-rotate="$ROT" \
-            --image-display-duration=inf \
-            --loop-file=inf \
-            "$SPLASH" > /run/kiosk-mpv.log 2>&1 &
-        echo $! > /run/kiosk-splash.pid
-    fi
-}
-
-# Cleanly hide boot splash screen
-hide_boot_splash() {
-    if [ -f /run/kiosk-splash.pid ]; then
-        SPID=$(cat /run/kiosk-splash.pid 2>/dev/null)
-        if [ -n "$SPID" ] && kill -0 "$SPID" 2>/dev/null; then
-            kill -TERM "$SPID" 2>/dev/null || true
-            for i in 1 2 3 4 5; do
-                kill -0 "$SPID" 2>/dev/null || break
-                usleep 50000 2>/dev/null || sleep 0.1
-            done
-            if kill -0 "$SPID" 2>/dev/null; then
-                kill -9 "$SPID" 2>/dev/null || true
+            --image-display-duration=4 \
+            "$SPLASH" > /run/kiosk-mpv.log 2>&1
+    elif [ -x /usr/bin/fbdraw ] && [ -e /dev/fb0 ]; then
+        for img in /media/mmcblk0p1/splash.ppm /usr/share/videokiosk/booting.ppm; do
+            if [ -f "$img" ]; then
+                /usr/bin/fbdraw "$img" /dev/fb0 2>/dev/null || true
+                sleep 4
+                break
             fi
-            wait "$SPID" 2>/dev/null || true
-        fi
-        rm -f /run/kiosk-splash.pid
+        done
     fi
 }
 
@@ -128,8 +103,8 @@ while [ ! -e /dev/dri/card0 ] && [ $count -lt 50 ]; do
     count=$((count + 1))
 done
 
-# Immediately paint boot splash screen to HDMI monitor
-show_boot_splash
+# Present boot splash screen persistently so it is clearly readable on startup
+present_boot_splash
 
 # Background SD & USB replug watcher: detects card re-insertion or USB drive insertion and triggers reboot
 start_replug_watcher() {
@@ -299,8 +274,6 @@ while true; do
         VIDEO_COUNT=$(wc -l < "$PLAYLIST_FILE")
         echo "[kiosk-player] Starting MPV with $VIDEO_COUNT video(s) in seamless playlist loop..." >&2
 
-        # Dismiss boot splash screen if still showing
-        hide_boot_splash
 
         # Signal that kiosk is fully ready for media replug events
         touch /run/kiosk-ready
@@ -341,13 +314,8 @@ while true; do
     else
         echo "[kiosk-player] No video files found. Displaying no-media screen & blinking Red LED (100ms)..." >&2
 
-        # On initial startup, keep boot splash visible for 2 seconds before showing no-media alert
-        if [ ! -f /run/kiosk-ready ]; then
-            sleep 2
-        fi
-
-        # Dismiss boot splash screen before displaying no-media screen
-        hide_boot_splash
+        # Signal that kiosk is fully ready for media replug events
+        touch /run/kiosk-ready
 
         # Attention / Error alert: Blink Red PWR LED 100ms, Green ACT is OFF
         for pwr in /sys/class/leds/PWR /sys/class/leds/led1 /sys/class/leds/*pwr*; do
