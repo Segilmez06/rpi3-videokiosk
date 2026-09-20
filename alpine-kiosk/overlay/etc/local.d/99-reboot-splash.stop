@@ -1,6 +1,8 @@
 #!/bin/sh
 # Display reboot splash screen on shutdown or reboot
-if [ -x /usr/bin/fbdraw ] && [ -f /usr/share/videokiosk/rebooting.ppm ] && [ -e /dev/fb0 ]; then
+if [ ! -f /run/kiosk-rebooting ]; then
     killall -9 mpv 2>/dev/null || true
+fi
+if [ -x /usr/bin/fbdraw ] && [ -f /usr/share/videokiosk/rebooting.ppm ] && [ -e /dev/fb0 ]; then
     /usr/bin/fbdraw /usr/share/videokiosk/rebooting.ppm /dev/fb0 2>/dev/null || true
 fi

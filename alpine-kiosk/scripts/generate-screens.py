@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
 """
-generate-fallback-image.py - Generates the "No media found!" fallback screen.
-Pure black background with centered white Inter font headline, lighter gray subtitle,
-and bottom-left credits.
-"""
+generate-screens.py - Generates all 4 standard 1080p kiosk state screens:
+1. booting.png    - "Booting up..." / "Hang tight!"
+2. searching.png  - "Searching media..." / "Hang tight!"
+3. no-media.png   - "No media found!" / "Please put content into media partition."
+4. rebooting.png  - "Rebooting..." / "This might take a few seconds."
 
+Pure black background with clean Inter typography and bottom-left credits.
+"""
 import os
 import sys
+import subprocess
 from PIL import Image, ImageDraw, ImageFont
 
 WIDTH, HEIGHT = 1920, 1080
 
-import subprocess
-
 def get_inter_font(size, weight=500):
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    root_dir = os.path.dirname(script_dir)
+    root_dir = os.path.dirname(os.path.dirname(script_dir))
     bundled_font = os.path.join(root_dir, "assets", "fonts", "Inter-Variable.ttf")
 
     candidates = [
@@ -46,7 +48,7 @@ def get_inter_font(size, weight=500):
 
 def get_version_text():
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    root_dir = os.path.dirname(script_dir)
+    root_dir = os.path.dirname(os.path.dirname(script_dir))
     version = "0.9"
     version_file = os.path.join(root_dir, "VERSION")
     if os.path.isfile(version_file):
@@ -70,75 +72,74 @@ def get_version_text():
         pass
     return f"Video Kiosk {version}"
 
-def render_credits(img):
-    draw = ImageDraw.Draw(img)
-    # Weight 500 (Inter Medium - increased +100 from default 400)
-    brand_font = get_inter_font(22, weight=500)
-    credit_font = get_inter_font(17, weight=500)
-
-    margin_x = 70
-    margin_bottom = 55
-    line_spacing = 6
-
-    # Line 1: 'Video Kiosk 0.1 (git_hash)' in smooth emerald green
-    brand_text = get_version_text()
-    b_bbox = draw.textbbox((0, 0), brand_text, font=brand_font)
-    b_h = b_bbox[3] - b_bbox[1]
-
-    # Line 2: 'by Sarp Eren EGILMEZ' in clean white (gradients removed)
-    credit_text = "by Sarp Eren EGILMEZ"
-    c_bbox = draw.textbbox((0, 0), credit_text, font=credit_font)
-    c_h = c_bbox[3] - c_bbox[1]
-
-    line2_y = img.height - margin_bottom - c_h
-    line1_y = line2_y - line_spacing - b_h
-
-    # Line 1 (smooth beautiful green: #34D399)
-    green_color = (52, 211, 153)
-    draw.text((margin_x, line1_y), brand_text, font=brand_font, fill=green_color)
-
-    # Line 2 (pure white: #ffffff)
-    draw.text((margin_x, line2_y), credit_text, font=credit_font, fill=(255, 255, 255))
-
-def main():
+def render_screen(title, subtitle, filename):
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    output_path = os.path.join(script_dir, "..", "assets", "no-media.png")
+    root_dir = os.path.dirname(os.path.dirname(script_dir))
+    output_path = os.path.join(root_dir, "assets", filename)
 
     img = Image.new("RGB", (WIDTH, HEIGHT), color=(0, 0, 0))
     draw = ImageDraw.Draw(img)
 
     title_font = get_inter_font(60, weight=700)
     desc_font = get_inter_font(30, weight=400)
-
-    title_text = "No media found!"
-    desc_text = "Please put content into media partition."
+    brand_font = get_inter_font(22, weight=500)
+    credit_font = get_inter_font(17, weight=500)
 
     # Measure headline
-    t_bbox = draw.textbbox((0, 0), title_text, font=title_font)
+    t_bbox = draw.textbbox((0, 0), title, font=title_font)
     t_w, t_h = t_bbox[2] - t_bbox[0], t_bbox[3] - t_bbox[1]
 
     # Measure description
-    d_bbox = draw.textbbox((0, 0), desc_text, font=desc_font)
+    d_bbox = draw.textbbox((0, 0), subtitle, font=desc_font)
     d_w, d_h = d_bbox[2] - d_bbox[0], d_bbox[3] - d_bbox[1]
 
-    spacing = 28
-    total_h = t_h + spacing + d_h
-    start_y = (HEIGHT - total_h) // 2
+    spacing = 26
+    total_text_h = t_h + spacing + d_h
+    start_y = (HEIGHT - total_text_h) // 2
 
-    # Draw headline (pure white)
+    # Draw headline (pure white #ffffff)
     t_x = (WIDTH - t_w) // 2
-    draw.text((t_x, start_y), title_text, font=title_font, fill=(255, 255, 255))
+    draw.text((t_x, start_y), title, font=title_font, fill=(255, 255, 255))
 
-    # Draw description (lighter gray, #a0a0a0)
+    # Draw description (lighter gray #a0a0a0)
     d_x = (WIDTH - d_w) // 2
-    draw.text((d_x, start_y + t_h + spacing), desc_text, font=desc_font, fill=(160, 160, 160))
+    draw.text((d_x, start_y + t_h + spacing), subtitle, font=desc_font, fill=(160, 160, 160))
 
-    # Render bottom-left credits
-    render_credits(img)
+    # Bottom-left credits
+    margin_x = 70
+    margin_bottom = 55
+    line_spacing = 6
+
+    brand_text = get_version_text()
+    b_bbox = draw.textbbox((0, 0), brand_text, font=brand_font)
+    b_h = b_bbox[3] - b_bbox[1]
+
+    credit_text = "by Sarp Eren EGILMEZ"
+    c_bbox = draw.textbbox((0, 0), credit_text, font=credit_font)
+    c_h = c_bbox[3] - c_bbox[1]
+
+    line2_y = HEIGHT - margin_bottom - c_h
+    line1_y = line2_y - line_spacing - b_h
+
+    # Line 1 (smooth emerald green: #34D399)
+    draw.text((margin_x, line1_y), brand_text, font=brand_font, fill=(52, 211, 153))
+
+    # Line 2 (pure white: #ffffff)
+    draw.text((margin_x, line2_y), credit_text, font=credit_font, fill=(255, 255, 255))
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    img.save(output_path, "PNG")
-    print(f"Generated fallback image: {output_path}")
+    img.save(output_path, "PNG", optimize=True)
+    print(f"Generated {output_path} ({os.path.getsize(output_path)} bytes)")
+
+def main():
+    screens = [
+        ("Booting up...", "Hang tight!", "booting.png"),
+        ("Searching media...", "Hang tight!", "searching.png"),
+        ("No media found!", "Please put content into media partition.", "no-media.png"),
+        ("Rebooting...", "This might take a few seconds.", "rebooting.png"),
+    ]
+    for title, subtitle, filename in screens:
+        render_screen(title, subtitle, filename)
 
 if __name__ == "__main__":
     main()

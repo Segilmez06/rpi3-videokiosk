@@ -195,6 +195,14 @@ im = Image.open('${ROOT_DIR}/assets/rebooting.png').convert('RGB')
 im.save('${SCRIPT_DIR}/overlay/usr/share/videokiosk/rebooting.ppm', format='PPM')
 " 2>/dev/null || true
 fi
+if [ -f "${ROOT_DIR}/assets/searching.png" ]; then
+    cp "${ROOT_DIR}/assets/searching.png" "${SCRIPT_DIR}/overlay/usr/share/videokiosk/searching.png"
+    python3 -c "
+from PIL import Image
+im = Image.open('${ROOT_DIR}/assets/searching.png').convert('RGB')
+im.save('${SCRIPT_DIR}/overlay/usr/share/videokiosk/searching.ppm', format='PPM')
+" 2>/dev/null || true
+fi
 
 # Create apkovl tar.gz preserving root ownership
 tar -czf "${APKOVL_FILE}" \

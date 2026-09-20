@@ -43,6 +43,18 @@ def get_inter_font(size, weight=500):
 
 def get_version_text():
     script_dir = os.path.dirname(os.path.abspath(__file__))
+    root_dir = os.path.dirname(os.path.dirname(script_dir))
+    version = "0.9"
+    version_file = os.path.join(root_dir, "VERSION")
+    if os.path.isfile(version_file):
+        try:
+            with open(version_file, "r") as f:
+                v = f.read().strip()
+                if v:
+                    version = v
+        except Exception:
+            pass
+
     try:
         git_hash = subprocess.check_output(
             ["git", "rev-parse", "--short", "HEAD"],
@@ -50,10 +62,10 @@ def get_version_text():
             text=True
         ).strip()
         if git_hash:
-            return f"Video Kiosk 0.1 ({git_hash})"
+            return f"Video Kiosk {version} ({git_hash})"
     except Exception:
         pass
-    return "Video Kiosk 0.1"
+    return f"Video Kiosk {version}"
 
 def render_credits(img):
     draw = ImageDraw.Draw(img)

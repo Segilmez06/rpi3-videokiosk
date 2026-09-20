@@ -13,6 +13,8 @@ RAM_VIDEOS_DIR="/run/kiosk-videos"
 PLAYLIST_FILE="/run/kiosk-playlist.txt"
 NO_MEDIA_IMG="/usr/share/videokiosk/no-media.png"
 BOOT_IMG="/usr/share/videokiosk/booting.png"
+SEARCHING_IMG="/usr/share/videokiosk/searching.png"
+REBOOTING_IMG="/usr/share/videokiosk/rebooting.png"
 MAX_RAM_CACHE_KB=460800  # 450 MB safe RAM threshold (leaves ~400MB free for MPV & kernel)
 
 # Read display orientation from configuration file (defaults to 0 / landscape)
@@ -58,27 +60,34 @@ find_boot_splash() {
     return 1
 }
 
-# Display boot splash screen on HDMI persistently
-present_boot_splash() {
-    SPLASH=$(find_boot_splash)
+# Display searching media screen on HDMI via MPV on DRM KMS
+start_searching_splash() {
     ROT=$(read_orientation)
-    if [ -n "$SPLASH" ] && [ -e /dev/dri/card0 ]; then
-        echo "[kiosk-player] Presenting boot splash ($SPLASH, rotate=$ROT deg)..." >&2
+    if [ -f "$SEARCHING_IMG" ] && [ -e /dev/dri/card0 ]; then
+        echo "[kiosk-player] Presenting searching media screen ($SEARCHING_IMG, rotate=$ROT deg)..." >&2
         /usr/bin/mpv \
             --no-config \
             --vo=gpu \
             --gpu-context=drm \
             --video-rotate="$ROT" \
-            --image-display-duration=2 \
-            "$SPLASH" > /run/kiosk-mpv.log 2>&1
-    elif [ -x /usr/bin/fbdraw ] && [ -e /dev/fb0 ]; then
-        for img in /media/mmcblk0p1/splash.ppm /usr/share/videokiosk/booting.ppm; do
-            if [ -f "$img" ]; then
-                /usr/bin/fbdraw "$img" /dev/fb0 2>/dev/null || true
-                sleep 2
-                break
-            fi
+            --image-display-duration=inf \
+            "$SEARCHING_IMG" > /run/kiosk-searching.log 2>&1 &
+        SEARCHING_PID=$!
+    elif [ -x /usr/bin/fbdraw ] && [ -f /usr/share/videokiosk/searching.ppm ] && [ -e /dev/fb0 ]; then
+        /usr/bin/fbdraw /usr/share/videokiosk/searching.ppm /dev/fb0 2>/dev/null || true
+    fi
+}
+
+stop_searching_splash() {
+    if [ -n "$SEARCHING_PID" ] && kill -0 "$SEARCHING_PID" 2>/dev/null; then
+        kill -TERM "$SEARCHING_PID" 2>/dev/null || true
+        for _t in 1 2 3 4 5; do
+            kill -0 "$SEARCHING_PID" 2>/dev/null || break
+            usleep 20000 2>/dev/null || sleep 0.05
         done
+        kill -9 "$SEARCHING_PID" 2>/dev/null || true
+        wait "$SEARCHING_PID" 2>/dev/null || true
+        unset SEARCHING_PID
     fi
 }
 
@@ -106,8 +115,8 @@ while [ ! -e /dev/dri/card0 ] && [ $count -lt 50 ]; do
     count=$((count + 1))
 done
 
-# Present boot splash screen persistently so it is clearly readable on startup
-present_boot_splash
+# Present searching media screen immediately upon entering userspace DRM KMS
+start_searching_splash
 
 # Background SD & USB replug watcher: detects card re-insertion or USB drive insertion and triggers reboot
 start_replug_watcher() {
@@ -116,11 +125,11 @@ start_replug_watcher() {
         while [ ! -f /run/kiosk-ready ]; do
             sleep 1
         done
-        sleep 5
+        sleep 3
 
-        # Check whether SD card was present initially
+        # Determine initial SD card presence by testing actual sector readability
         was_sd_present=0
-        if grep -q "mmcblk0" /proc/partitions 2>/dev/null; then
+        if [ -b /dev/mmcblk0 ] && dd if=/dev/mmcblk0 of=/dev/null bs=512 count=1 >/dev/null 2>&1; then
             was_sd_present=1
         fi
 
@@ -128,17 +137,28 @@ start_replug_watcher() {
             msg="$1"
             [ -f /run/kiosk-rebooting ] && return 0
             touch /run/kiosk-rebooting
-            echo "[kiosk-replug] $msg! Clean reboot in 2s to load new content..." >&2
+            echo "[kiosk-replug] $msg! Clean reboot in 3s to load new content..." >&2
             echo timer > /sys/class/leds/ACT/trigger 2>/dev/null || true
             echo 50 > /sys/class/leds/ACT/delay_on 2>/dev/null || true
             echo 50 > /sys/class/leds/ACT/delay_off 2>/dev/null || true
             echo none > /sys/class/leds/PWR/trigger 2>/dev/null || true
             echo 0 > /sys/class/leds/PWR/brightness 2>/dev/null || true
             killall -9 mpv 2>/dev/null || true
+            usleep 50000 2>/dev/null || sleep 0.05
+            ROT=$(read_orientation 2>/dev/null || echo 0)
+            if [ -f "$REBOOTING_IMG" ] && [ -e /dev/dri/card0 ]; then
+                /usr/bin/mpv \
+                    --no-config \
+                    --vo=gpu \
+                    --gpu-context=drm \
+                    --video-rotate="$ROT" \
+                    --image-display-duration=inf \
+                    "$REBOOTING_IMG" > /run/kiosk-reboot.log 2>&1 &
+            fi
             if [ -x /usr/bin/fbdraw ] && [ -f /usr/share/videokiosk/rebooting.ppm ] && [ -e /dev/fb0 ]; then
                 /usr/bin/fbdraw /usr/share/videokiosk/rebooting.ppm /dev/fb0 2>/dev/null || true
             fi
-            sleep 2
+            sleep 3
             sync
             reboot
         }
@@ -146,20 +166,29 @@ start_replug_watcher() {
         while true; do
             sleep 1
 
+            [ -f /run/kiosk-rebooting ] && exit 0
+
             # 1. Detect USB thumb drive insertion
             if grep -qE "sd[a-z][0-9]" /proc/partitions 2>/dev/null; then
                 trigger_reboot "USB media drive detected"
             fi
 
-            # 2. Detect SD card re-insertion
-            if grep -q "mmcblk0" /proc/partitions 2>/dev/null; then
-                if [ "$was_sd_present" -eq 0 ]; then
+            # 2. Check SD card state
+            if [ "$was_sd_present" -eq 1 ]; then
+                # Card was present: test if it has been physically removed
+                if ! dd if=/dev/mmcblk0 of=/dev/null bs=512 count=1 >/dev/null 2>&1; then
+                    echo "[kiosk-replug] SD card removal detected." >&2
+                    was_sd_present=0
+                fi
+            else
+                # Card was removed / absent: poke MMC host controllers to detect insertion
+                for rescan in /sys/class/mmc_host/*/rescan; do
+                    [ -f "$rescan" ] && echo 1 > "$rescan" 2>/dev/null
+                done
+                # Test if card is now present and readable
+                if [ -b /dev/mmcblk0 ] && dd if=/dev/mmcblk0 of=/dev/null bs=512 count=1 >/dev/null 2>&1; then
                     trigger_reboot "SD card re-inserted"
                 fi
-                was_sd_present=1
-            else
-                # SD card physically removed
-                was_sd_present=0
             fi
         done
     ) > /dev/null 2>&1 &
@@ -270,9 +299,17 @@ prepare_playlist() {
 
 # Main infinite playback supervisor loop
 while true; do
+    if [ -f /run/kiosk-rebooting ]; then
+        sleep 10
+        exit 0
+    fi
+
     if prepare_playlist; then
         VIDEO_COUNT=$(wc -l < "$PLAYLIST_FILE")
         echo "[kiosk-player] Starting MPV with $VIDEO_COUNT video(s) in seamless playlist loop..." >&2
+
+        # Dismiss searching media screen now that playlist is prepared
+        stop_searching_splash
 
 
         # Signal that kiosk is fully ready for media replug events
@@ -314,6 +351,9 @@ while true; do
     else
         echo "[kiosk-player] No video files found. Displaying no-media screen & blinking Red LED (100ms)..." >&2
 
+        # Dismiss searching media screen before showing no-media screen
+        stop_searching_splash
+
         # Signal that kiosk is fully ready for media replug events
         touch /run/kiosk-ready
 
@@ -350,6 +390,10 @@ while true; do
 
             # Stay on the static graphic until media files are found
             while [ -z "$(locate_source_dir)" ]; do
+                if [ -f /run/kiosk-rebooting ]; then
+                    sleep 10
+                    exit 0
+                fi
                 sleep 2
             done
 
@@ -367,6 +411,10 @@ while true; do
             fi
         else
             while [ -z "$(locate_source_dir)" ]; do
+                if [ -f /run/kiosk-rebooting ]; then
+                    sleep 10
+                    exit 0
+                fi
                 sleep 2
             done
         fi
