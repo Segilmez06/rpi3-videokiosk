@@ -358,22 +358,24 @@ while true; do
         touch /run/kiosk-ready
 
         # Attention / Error alert: Blink Red PWR LED 100ms, Green ACT is OFF
-        for pwr in /sys/class/leds/PWR /sys/class/leds/led1 /sys/class/leds/*pwr*; do
-            if [ -d "$pwr" ]; then
-                echo timer > "$pwr/trigger" 2>/dev/null || true
-                echo 100 > "$pwr/delay_on" 2>/dev/null || true
-                echo 100 > "$pwr/delay_off" 2>/dev/null || true
-            fi
-        done
-        for act in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act*; do
-            if [ -d "$act" ]; then
-                echo none > "$act/trigger" 2>/dev/null || true
-                echo 0 > "$act/brightness" 2>/dev/null || true
-            fi
-        done
-
-        # Signal that kiosk is fully ready for media replug events
-        touch /run/kiosk-ready
+        set_no_media_leds() {
+            for pwr in /sys/class/leds/PWR /sys/class/leds/led1 /sys/class/leds/*pwr*; do
+                if [ -d "$pwr" ]; then
+                    echo none > "$pwr/trigger" 2>/dev/null || true
+                    echo 1 > "$pwr/brightness" 2>/dev/null || true
+                    echo timer > "$pwr/trigger" 2>/dev/null || true
+                    echo 100 > "$pwr/delay_on" 2>/dev/null || true
+                    echo 100 > "$pwr/delay_off" 2>/dev/null || true
+                fi
+            done
+            for act in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act*; do
+                if [ -d "$act" ]; then
+                    echo none > "$act/trigger" 2>/dev/null || true
+                    echo 0 > "$act/brightness" 2>/dev/null || true
+                fi
+            done
+        }
+        set_no_media_leds
 
         # Display full-screen 1080p No-Media graphic SOLID (no flashing!) until media is discovered
         if [ -f "$NO_MEDIA_IMG" ]; then
@@ -394,6 +396,7 @@ while true; do
                     sleep 10
                     exit 0
                 fi
+                set_no_media_leds
                 sleep 2
             done
 
@@ -415,6 +418,7 @@ while true; do
                     sleep 10
                     exit 0
                 fi
+                set_no_media_leds
                 sleep 2
             done
         fi

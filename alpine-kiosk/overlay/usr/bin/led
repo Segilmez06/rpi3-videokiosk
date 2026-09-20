@@ -91,6 +91,8 @@ case "$1" in
                 echo "Red (PWR) -> OFF"
                 ;;
             blink|timer)
+                echo none > "$PWR/trigger" 2>/dev/null || true
+                echo 1 > "$PWR/brightness" 2>/dev/null || true
                 echo timer > "$PWR/trigger"
                 echo 100 > "$PWR/delay_on" 2>/dev/null || true
                 echo 100 > "$PWR/delay_off" 2>/dev/null || true
