@@ -19,7 +19,7 @@ Download the latest release artifact from the [Releases](https://github.com/Segi
 
 #### Option A: Flash with `dd` (Recommended for fresh cards)
 ```bash
-xzcat alpine-kiosk.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
+xzcat alpine-kiosk.img.xz | sudo dd of=/dev/sdX bs=64k status=progress oflag=sync
 ```
 *(Replace `/dev/sdX` with your target SD card device).*
 

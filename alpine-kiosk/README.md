@@ -36,7 +36,7 @@ Artifacts are placed in `output/`:
 
 ### Option A: Flash with `dd` (Recommended for fresh cards)
 ```bash
-xzcat output/alpine-kiosk.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
+xzcat output/alpine-kiosk.img.xz | sudo dd of=/dev/sdX bs=64k status=progress oflag=sync
 ```
 *(Replace `/dev/sdX` with your target SD card device).*
 
