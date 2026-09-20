@@ -1,6 +1,6 @@
 # Raspberry Pi 3 Video Kiosk
 
-[![Version](https://img.shields.io/badge/version-0.9-34D399.svg)](https://github.com/Segilmez06/rpi3-videokiosk/releases)
+[![Version](https://img.shields.io/badge/version-0.9.1-34D399.svg)](https://github.com/Segilmez06/rpi3-videokiosk/releases)
 [![Target](https://img.shields.io/badge/target-Raspberry%20Pi%203%20Model%20B-c51a4a.svg?logo=raspberry-pi)](https://www.raspberrypi.com/products/raspberry-pi-3-model-b/)
 [![Architecture](https://img.shields.io/badge/arch-aarch64-blue.svg)](https://en.wikipedia.org/wiki/AArch64)
 [![OS](https://img.shields.io/badge/base-Alpine%20Linux%203.24.2-0d597f.svg?logo=alpinelinux)](https://alpinelinux.org/)

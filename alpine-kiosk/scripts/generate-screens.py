@@ -49,7 +49,7 @@ def get_inter_font(size, weight=500):
 def get_version_text():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     root_dir = os.path.dirname(os.path.dirname(script_dir))
-    version = "0.9"
+    version = "0.9.1"
     version_file = os.path.join(root_dir, "VERSION")
     if os.path.isfile(version_file):
         try:
