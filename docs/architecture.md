@@ -2,9 +2,25 @@
 
 The Raspberry Pi 3 Video Kiosk runs **Alpine Linux 3.24.2** in a pure diskless, run-from-RAM (`tmpfs`) architecture. The root filesystem (`/`) is mounted in volatile system memory, while storage volumes are mounted strictly read-only or unmounted during active playback.
 
+## 1. System Architecture Overview
+
+```mermaid
+flowchart TD
+    A(["Power On / Hardware Reset"]) --> B["BCM2837 Firmware (config.txt)<br/>• arm_freq=1000, initial_turbo=20<br/>• Radios Disabled (Wi-Fi / BT)"]
+    B --> C["Alpine initramfs (Linux 6.18)<br/>• Green ACT LED blinking (100ms)<br/>• Early splash: 'Booting up...' via fbdraw"]
+    C --> D["OpenRC Init & switch_root to RAM<br/>• Rootfs unpacked to tmpfs<br/>• vc4 / v3d DRM KMS initialized<br/>• Splash: 'Searching media...'"]
+    D --> E{"Video Payload Size"}
+    E -- "<= 450 MB" --> F["In-RAM VFS Cache<br/>• Copied to /run/kiosk-videos (tmpfs)<br/>• SD card safely unmounted<br/>• Safe for live physical hot-ejection"]
+    E -- "> 450 MB" --> G["Direct Flash Stream<br/>• Retain read-only VFS mount<br/>• Stream directly from storage"]
+    F --> H["MPV Playback Engine (DRM KMS)<br/>• Gapless playlist loop (--prefetch-playlist)<br/>• V4L2 M2M hardware video decode<br/>• Stealth Mode: all onboard LEDs OFF<br/>• Orientation: 0°, 90°, 180°, 270°"]
+    G --> H
+    H --> I["Background Hotplug Watcher<br/>• Polling sysfs MMC bus rescan<br/>• SD re-inserted or USB drive added?"]
+    I -- "Media Detected" --> J["Clean Reboot Flow<br/>• Green ACT rapid flash (50ms)<br/>• Instant 'Rebooting...' screen"]
+```
+
 ---
 
-## 1. Architectural Philosophy: Why Alpine Linux?
+## 2. Architectural Philosophy: Why Alpine Linux?
 
 Traditional single-board computer distributions like Debian, Raspberry Pi OS, or DietPi rely on standard block-device installations where `/` resides on an Ext4 partition on the SD card. While suitable for general-purpose computing, that design introduces systemic failure points in commercial kiosk deployments:
 
@@ -29,7 +45,7 @@ Traditional single-board computer distributions like Debian, Raspberry Pi OS, or
 
 ---
 
-## 2. Power-Cut Immunity: The Mathematics of tmpfs
+## 3. Power-Cut Immunity: The Mathematics of tmpfs
 
 Standard flash memory corruption during sudden power loss occurs due to unfinished NAND flash block erase/write cycles and corrupted filesystem metadata structures (superblocks, inode tables, Ext4 journals). 
 
@@ -47,7 +63,7 @@ Even when streaming large media files (> 450 MB) directly from disk, `/media/mmc
 
 ---
 
-## 3. End-to-End Boot Flow
+## 4. End-to-End Boot Flow
 
 The kiosk follows a streamlined execution path from hardware power-on to video playback on DRM KMS:
 
@@ -62,7 +78,7 @@ flowchart TD
 
 ---
 
-## 4. Subsystem Responsibilities
+## 5. Subsystem Responsibilities
 
 ### Linux Kernel & Device Tree
 The kernel image [`boot/vmlinuz-rpi`](file:///home/sarp/rpi3-videokiosk/alpine-kiosk/configs/config.txt#L5) is the official 64-bit Raspberry Pi kernel provided by Alpine Linux. Device tree overlays configured in [`alpine-kiosk/configs/config.txt`](file:///home/sarp/rpi3-videokiosk/alpine-kiosk/configs/config.txt) disable unused hardware (Wi-Fi, Bluetooth, onboard audio) and configure the VideoCore IV display controller (`vc4-kms-v3d`).
