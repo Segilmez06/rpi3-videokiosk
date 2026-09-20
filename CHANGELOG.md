@@ -4,6 +4,13 @@ All notable changes to the Raspberry Pi 3 Video Kiosk appliance are documented i
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.9.2] - 2026-09-20
+### Fixed & Improved
+- **Automated Release Notes Pipeline**: Removed rigid label filtering from `.github/release.yml` and added fallback changelog generation in GitHub Actions workflow. Ensures every release includes a complete list of pull requests or commits with contributor attribution, even when PRs lack explicit GitHub issue labels.
+- **Screen Asset Watermarks**: Regenerated splash screen assets to display `Video Kiosk 0.9.2 (<git-hash>)`.
+
+---
+
 ## [v0.9.1] - 2026-09-20
 ### Fixed & Improved
 - **CI/CD Automated Release Notes**: Configured `.github/release.yml` and GitHub Actions pipeline to dynamically generate categorization and contributor attribution using GitHub's native release notes engine.

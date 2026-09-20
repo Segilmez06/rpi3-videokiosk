@@ -48,12 +48,40 @@ jobs:
           TAG="v${VERSION}"
           echo "Publishing release for ${TAG}..."
 
+          # Fetch previous tag to determine delta
+          PREV_TAG=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || git describe --tags --abbrev=0 2>/dev/null || true)
+          echo "Previous tag: ${PREV_TAG}"
+
+          # Attempt to generate release notes via GitHub API
+          GEN_ARGS=(-f tag_name="${TAG}" -f target_commitish="main")
+          if [ -n "${PREV_TAG}" ] && [ "${PREV_TAG}" != "${TAG}" ]; then
+            GEN_ARGS+=(-f previous_tag_name="${PREV_TAG}")
+          fi
+
+          NOTES=$(gh api -X POST "/repos/${{ github.repository }}/releases/generate-notes" \
+            "${GEN_ARGS[@]}" \
+            --jq .body 2>/dev/null || true)
+
+          # Verify notes contain substantive change entries (bullet points)
+          if [ -z "$NOTES" ] || ! echo "$NOTES" | grep -q '\* '; then
+            echo "GitHub API did not produce PR list. Generating changelog from git log..."
+            if [ -n "$PREV_TAG" ] && [ "$PREV_TAG" != "$TAG" ]; then
+              COMMIT_LOG=$(git log "${PREV_TAG}..HEAD" --pretty=format:"* %s by @%an (%h)" --no-merges)
+              NOTES="## What's Changed"$'\n'"$COMMIT_LOG"$'\n\n'"**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${TAG}"
+            else
+              COMMIT_LOG=$(git log -n 25 --pretty=format:"* %s by @%an (%h)" --no-merges)
+              NOTES="## What's Changed"$'\n'"$COMMIT_LOG"
+            fi
+          fi
+
+          echo "$NOTES" > release_notes.md
+          echo "=== Release Notes ==="
+          cat release_notes.md
+          echo "====================="
+
           if gh release view "${TAG}" >/dev/null 2>&1; then
             echo "Release ${TAG} already exists. Updating release notes and assets..."
-            gh api -X POST "/repos/${{ github.repository }}/releases/generate-notes" \
-              -f tag_name="${TAG}" \
-              -f target_commitish="main" \
-              --jq .body | gh release edit "${TAG}" --notes-file -
+            gh release edit "${TAG}" --notes-file release_notes.md
 
             gh release upload "${TAG}" \
               output/alpine-kiosk.img.xz \
@@ -61,12 +89,12 @@ jobs:
               output/SHA256SUMS \
               --clobber
           else
-            echo "Creating new release ${TAG} with auto-generated release notes..."
+            echo "Creating new release ${TAG}..."
             gh release create "${TAG}" \
               output/alpine-kiosk.img.xz \
               output/alpine-kiosk-sdcard.tar.gz \
               output/SHA256SUMS \
               --target main \
               --title "Video Kiosk ${TAG}" \
-              --generate-notes
+              --notes-file release_notes.md
           fi
