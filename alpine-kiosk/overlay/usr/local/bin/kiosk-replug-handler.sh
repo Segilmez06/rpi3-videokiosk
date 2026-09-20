@@ -23,6 +23,12 @@ echo 0 > /sys/class/leds/PWR/brightness 2>/dev/null || true
 echo "[kiosk-replug] Media device '$1' connected. Clean rebooting in 2s to load new content..." > /dev/kmsg 2>/dev/null
 echo "[kiosk-replug] Media device '$1' connected. Rebooting in 2s..." >&2
 
+# 5. Display reboot screen immediately
+killall -9 mpv 2>/dev/null || true
+if [ -x /usr/bin/fbdraw ] && [ -f /usr/share/videokiosk/rebooting.ppm ] && [ -e /dev/fb0 ]; then
+    /usr/bin/fbdraw /usr/share/videokiosk/rebooting.ppm /dev/fb0 2>/dev/null || true
+fi
+
 sleep 2
 sync
 reboot

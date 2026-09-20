@@ -63,19 +63,19 @@ present_boot_splash() {
     SPLASH=$(find_boot_splash)
     ROT=$(read_orientation)
     if [ -n "$SPLASH" ] && [ -e /dev/dri/card0 ]; then
-        echo "[kiosk-player] Presenting boot splash for 4s ($SPLASH, rotate=$ROT deg)..." >&2
+        echo "[kiosk-player] Presenting boot splash ($SPLASH, rotate=$ROT deg)..." >&2
         /usr/bin/mpv \
             --no-config \
             --vo=gpu \
             --gpu-context=drm \
             --video-rotate="$ROT" \
-            --image-display-duration=4 \
+            --image-display-duration=2 \
             "$SPLASH" > /run/kiosk-mpv.log 2>&1
     elif [ -x /usr/bin/fbdraw ] && [ -e /dev/fb0 ]; then
         for img in /media/mmcblk0p1/splash.ppm /usr/share/videokiosk/booting.ppm; do
             if [ -f "$img" ]; then
                 /usr/bin/fbdraw "$img" /dev/fb0 2>/dev/null || true
-                sleep 4
+                sleep 2
                 break
             fi
         done
@@ -95,6 +95,9 @@ for act in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act*; do
         echo 1 > "$act/brightness" 2>/dev/null || true
     fi
 done
+
+# Ensure DRM KMS drivers are loaded for hardware acceleration
+modprobe vc4 v3d 2>/dev/null || true
 
 # Wait for DRM KMS device node (/dev/dri/card0)
 count=0
@@ -121,40 +124,37 @@ start_replug_watcher() {
             was_sd_present=1
         fi
 
+        trigger_reboot() {
+            msg="$1"
+            [ -f /run/kiosk-rebooting ] && return 0
+            touch /run/kiosk-rebooting
+            echo "[kiosk-replug] $msg! Clean reboot in 2s to load new content..." >&2
+            echo timer > /sys/class/leds/ACT/trigger 2>/dev/null || true
+            echo 50 > /sys/class/leds/ACT/delay_on 2>/dev/null || true
+            echo 50 > /sys/class/leds/ACT/delay_off 2>/dev/null || true
+            echo none > /sys/class/leds/PWR/trigger 2>/dev/null || true
+            echo 0 > /sys/class/leds/PWR/brightness 2>/dev/null || true
+            killall -9 mpv 2>/dev/null || true
+            if [ -x /usr/bin/fbdraw ] && [ -f /usr/share/videokiosk/rebooting.ppm ] && [ -e /dev/fb0 ]; then
+                /usr/bin/fbdraw /usr/share/videokiosk/rebooting.ppm /dev/fb0 2>/dev/null || true
+            fi
+            sleep 2
+            sync
+            reboot
+        }
+
         while true; do
             sleep 1
 
             # 1. Detect USB thumb drive insertion
             if grep -qE "sd[a-z][0-9]" /proc/partitions 2>/dev/null; then
-                if [ ! -f /run/kiosk-rebooting ]; then
-                    touch /run/kiosk-rebooting
-                    echo "[kiosk-replug] USB media drive detected! Clean reboot in 2s to load new content..." >&2
-                    echo timer > /sys/class/leds/ACT/trigger 2>/dev/null || true
-                    echo 50 > /sys/class/leds/ACT/delay_on 2>/dev/null || true
-                    echo 50 > /sys/class/leds/ACT/delay_off 2>/dev/null || true
-                    echo none > /sys/class/leds/PWR/trigger 2>/dev/null || true
-                    echo 0 > /sys/class/leds/PWR/brightness 2>/dev/null || true
-                    sleep 2
-                    sync
-                    reboot
-                fi
+                trigger_reboot "USB media drive detected"
             fi
 
             # 2. Detect SD card re-insertion
             if grep -q "mmcblk0" /proc/partitions 2>/dev/null; then
                 if [ "$was_sd_present" -eq 0 ]; then
-                    if [ ! -f /run/kiosk-rebooting ]; then
-                        touch /run/kiosk-rebooting
-                        echo "[kiosk-replug] SD card re-inserted! Clean reboot in 2s to load new content..." >&2
-                        echo timer > /sys/class/leds/ACT/trigger 2>/dev/null || true
-                        echo 50 > /sys/class/leds/ACT/delay_on 2>/dev/null || true
-                        echo 50 > /sys/class/leds/ACT/delay_off 2>/dev/null || true
-                        echo none > /sys/class/leds/PWR/trigger 2>/dev/null || true
-                        echo 0 > /sys/class/leds/PWR/brightness 2>/dev/null || true
-                        sleep 2
-                        sync
-                        reboot
-                    fi
+                    trigger_reboot "SD card re-inserted"
                 fi
                 was_sd_present=1
             else

@@ -95,8 +95,8 @@ def main():
     img = Image.new("RGB", (WIDTH, HEIGHT), color=(0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    title_font = get_inter_font(64, weight=700)
-    desc_font = get_inter_font(32, weight=400)
+    title_font = get_inter_font(60, weight=700)
+    desc_font = get_inter_font(30, weight=400)
 
     title_text = "No media found!"
     desc_text = "Please put content into media partition."

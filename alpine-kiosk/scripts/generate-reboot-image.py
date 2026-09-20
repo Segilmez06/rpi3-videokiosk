@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 """
-generate-boot-image.py - Generates the "Hang tight! Copying data to RAM." boot splash screen.
-1080p pure black background with clean typography and bottom-left credits.
+generate-reboot-image.py - Generates the "Rebooting - This might take a few seconds." screen.
+1080p pure black background with clean Inter typography and bottom-left credits.
 """
 import os
 import sys
+import subprocess
 from PIL import Image, ImageDraw, ImageFont
 
 WIDTH, HEIGHT = 1920, 1080
-
-import subprocess
 
 def get_inter_font(size, weight=500):
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -88,7 +87,7 @@ def render_credits(img):
 
 def main():
     root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    output_path = os.path.join(root_dir, "..", "assets", "booting.png")
+    output_path = os.path.join(root_dir, "..", "assets", "rebooting.png")
     output_path = os.path.abspath(output_path)
 
     img = Image.new("RGB", (WIDTH, HEIGHT), color=(0, 0, 0))
@@ -97,8 +96,8 @@ def main():
     title_font = get_inter_font(60, weight=700)
     desc_font = get_inter_font(30, weight=400)
 
-    title_text = "Booting up"
-    desc_text = "Hang tight!"
+    title_text = "Rebooting"
+    desc_text = "This might take a few seconds."
 
     # Measure headline
     t_bbox = draw.textbbox((0, 0), title_text, font=title_font)
@@ -108,7 +107,7 @@ def main():
     d_bbox = draw.textbbox((0, 0), desc_text, font=desc_font)
     d_w, d_h = d_bbox[2] - d_bbox[0], d_bbox[3] - d_bbox[1]
 
-    spacing = 24
+    spacing = 26
     total_text_h = t_h + spacing + d_h
     start_y = (HEIGHT - total_text_h) // 2
 
@@ -125,7 +124,7 @@ def main():
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     img.save(output_path, "PNG", optimize=True)
-    print(f"Generated boot splash image: {output_path} ({os.path.getsize(output_path)} bytes)")
+    print(f"Generated rebooting splash image: {output_path} ({os.path.getsize(output_path)} bytes)")
 
 if __name__ == "__main__":
     main()
