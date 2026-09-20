@@ -42,6 +42,20 @@ def get_inter_font(size, weight=500):
             pass
     return ImageFont.load_default()
 
+def get_version_text():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    try:
+        git_hash = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=script_dir,
+            text=True
+        ).strip()
+        if git_hash:
+            return f"Video Kiosk 0.1 ({git_hash})"
+    except Exception:
+        pass
+    return "Video Kiosk 0.1"
+
 def render_credits(img):
     draw = ImageDraw.Draw(img)
     # Weight 500 (Inter Medium - increased +100 from default 400)
@@ -52,56 +66,25 @@ def render_credits(img):
     margin_bottom = 55
     line_spacing = 6
 
-    # Line 1: 'Video Kiosk' in smooth emerald green
-    brand_text = "Video Kiosk"
+    # Line 1: 'Video Kiosk 0.1 (git_hash)' in smooth emerald green
+    brand_text = get_version_text()
     b_bbox = draw.textbbox((0, 0), brand_text, font=brand_font)
-    b_w, b_h = b_bbox[2] - b_bbox[0], b_bbox[3] - b_bbox[1]
+    b_h = b_bbox[3] - b_bbox[1]
 
-    # Line 2: 'Built by ' (white) + 'Sarp Eren EGILMEZ' (blue to purple gradient)
-    prefix_text = "Built by "
-    name_text = "Sarp Eren EGILMEZ"
+    # Line 2: 'by Sarp Eren EGILMEZ' in clean white (gradients removed)
+    credit_text = "by Sarp Eren EGILMEZ"
+    c_bbox = draw.textbbox((0, 0), credit_text, font=credit_font)
+    c_h = c_bbox[3] - c_bbox[1]
 
-    p_bbox = draw.textbbox((0, 0), prefix_text, font=credit_font)
-    p_w, p_h = p_bbox[2] - p_bbox[0], p_bbox[3] - p_bbox[1]
-
-    n_bbox = draw.textbbox((0, 0), name_text, font=credit_font)
-    n_w, n_h = n_bbox[2] - n_bbox[0], n_bbox[3] - n_bbox[1]
-
-    line2_h = max(p_h, n_h)
-    line2_y = img.height - margin_bottom - line2_h
+    line2_y = img.height - margin_bottom - c_h
     line1_y = line2_y - line_spacing - b_h
 
     # Line 1 (smooth beautiful green: #34D399)
     green_color = (52, 211, 153)
     draw.text((margin_x, line1_y), brand_text, font=brand_font, fill=green_color)
 
-    # Line 2 Prefix ('Built by ' in white)
-    draw.text((margin_x, line2_y), prefix_text, font=credit_font, fill=(255, 255, 255))
-
-    # Line 2 Name ('Sarp Eren EGILMEZ' with blue-to-purple gradient)
-    name_x = margin_x + p_w
-    grad_w = max(n_w + 4, 1)
-    grad_h = max(n_h + 4, 1)
-
-    grad_img = Image.new("RGB", (grad_w, grad_h))
-    g_draw = ImageDraw.Draw(grad_img)
-
-    # Gradient: Vibrant Sky Blue (96, 165, 250) -> Royal Purple (192, 132, 252)
-    c_start = (96, 165, 250)
-    c_end = (192, 132, 252)
-
-    for x in range(grad_w):
-        t = x / max(grad_w - 1, 1)
-        r = int(c_start[0] + (c_end[0] - c_start[0]) * t)
-        g = int(c_start[1] + (c_end[1] - c_start[1]) * t)
-        b = int(c_start[2] + (c_end[2] - c_start[2]) * t)
-        g_draw.line([(x, 0), (x, grad_h)], fill=(r, g, b))
-
-    mask = Image.new("L", (grad_w, grad_h), 0)
-    m_draw = ImageDraw.Draw(mask)
-    m_draw.text((-n_bbox[0], -n_bbox[1]), name_text, font=credit_font, fill=255)
-
-    img.paste(grad_img, (name_x + n_bbox[0], line2_y + n_bbox[1]), mask=mask)
+    # Line 2 (pure white: #ffffff)
+    draw.text((margin_x, line2_y), credit_text, font=credit_font, fill=(255, 255, 255))
 
 def main():
     root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -117,18 +100,6 @@ def main():
     title_text = "Hang tight!"
     desc_text = "Copying data to RAM."
 
-    # Draw a minimalist, elegant loading dot accent above text
-    center_x = WIDTH // 2
-    accent_y = (HEIGHT // 2) - 80
-    dot_radius = 4
-    dot_spacing = 20
-    num_dots = 3
-    start_dot_x = center_x - ((num_dots - 1) * dot_spacing) // 2
-    for i in range(num_dots):
-        x = start_dot_x + (i * dot_spacing)
-        alpha = 140 if i != 1 else 255
-        draw.ellipse([x - dot_radius, accent_y - dot_radius, x + dot_radius, accent_y + dot_radius], fill=(alpha, alpha, alpha))
-
     # Measure headline
     t_bbox = draw.textbbox((0, 0), title_text, font=title_font)
     t_w, t_h = t_bbox[2] - t_bbox[0], t_bbox[3] - t_bbox[1]
@@ -138,7 +109,8 @@ def main():
     d_w, d_h = d_bbox[2] - d_bbox[0], d_bbox[3] - d_bbox[1]
 
     spacing = 24
-    start_y = (HEIGHT // 2) - 20
+    total_text_h = t_h + spacing + d_h
+    start_y = (HEIGHT - total_text_h) // 2
 
     # Draw headline (pure white #ffffff)
     t_x = (WIDTH - t_w) // 2

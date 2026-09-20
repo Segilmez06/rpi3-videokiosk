@@ -177,7 +177,7 @@ exec switch_root $switch_root_opts $sysroot $chart_init "$KOPT_init" $KOPT_init_
         if target_media in content:
             content = content.replace(target_media, code_media, 1)
             print("[+] Injected splash refresh before mounting boot media in init")
-        content = content.replace(target2, code2, 1)
+        content = content.replace(target2, code2)
 
         with open(init_file, "w") as f:
             f.write(content)
