@@ -27,34 +27,16 @@ However, the **Raspberry Pi 3 Model B (and 3B+) micro-SD slot has no mechanical 
 
 To overcome the lack of hardware card detection while supporting USB flash drives, the kiosk implements a complementary two-tier strategy:
 
-```
-+-------------------------------------------------------------------------+
-|                         Detection Layer                                 |
-+------------------------------------+------------------------------------+
-|            Tier 1: udev            |       Tier 2: Background Poller    |
-|   (/etc/udev/rules.d/              |      (kiosk-player.sh subshell)    |
-|    99-kiosk-replug.rules)          |                                    |
-|                                    | - Probing read (dd bs=512 count=1) |
-| - Instant USB insertion ('sd*1')   | - Kernel MMC bus rescan trigger    |
-| - Kernel-notified MMC events       |   (/sys/class/mmc_host/*/rescan)   |
-|                                    | - Detection of state transitions   |
-+------------------------------------+------------------------------------+
-                                     |
-                                     v
-                  +--------------------------------------+
-                  |   Atomic Guard: /run/kiosk-rebooting |
-                  |   - Prevents race conditions         |
-                  |   - Suppresses loop restarts         |
-                  +--------------------------------------+
-                                     |
-                                     v
-                  +--------------------------------------+
-                  |   Reboot Routine                     |
-                  |   1. Flash Green ACT LED (50ms)      |
-                  |   2. Terminate existing MPV          |
-                  |   3. Show "Rebooting..." (DRM & FB)  |
-                  |   4. sync && reboot                  |
-                  +--------------------------------------+
+```mermaid
+flowchart TD
+    subgraph DL["Dual-Layer Detection Engine"]
+        direction LR
+        T1["<b>Tier 1: udev</b><br/><code>/etc/udev/rules.d/99-kiosk-replug.rules</code><br/>• Instant USB insertion ('sd*1')<br/>• Kernel-notified MMC events"]
+        T2["<b>Tier 2: Background MMC Poller</b><br/><code>kiosk-player.sh subshell</code><br/>• Probing read: <code>dd bs=512 count=1</code><br/>• Sysfs bus rescan: <code>/sys/class/mmc_host/*/rescan</code><br/>• Detection of state transitions"]
+    end
+    T1 --> G["<b>Atomic Guard:</b> <code>/run/kiosk-rebooting</code><br/>• Prevents race conditions<br/>• Suppresses multiple triggers"]
+    T2 --> G
+    G --> R["<b>Clean Reboot Sequence</b><br/>1. Flash Green ACT LED rapidly (50ms)<br/>2. Terminate running MPV instance<br/>3. Instant 'Rebooting...' screen (DRM KMS &amp; FB fallback)<br/>4. sync &amp;&amp; reboot"]
 ```
 
 ---

@@ -15,62 +15,18 @@ The system runs **100% in-RAM (`tmpfs`)** using a diskless Alpine Linux architec
 
 ## System Architecture
 
-```
-                       +---------------------------------------+
-                       |      Power On / Hardware Reset        |
-                       +---------------------------------------+
-                                           |
-                                           v
-                       +---------------------------------------+
-                       |  BCM2837 Firmware (config.txt)        |
-                       |  - initial_turbo=20, arm_freq=1000   |
-                       |  - Wi-Fi & Bluetooth hardware-off    |
-                       +---------------------------------------+
-                                           |
-                                           v
-                       +---------------------------------------+
-                       |  Alpine initramfs (Linux 6.18)        |
-                       |  - Green ACT LED blinking 100ms       |
-                       |  - Early splash: "Booting up..."      |
-                       |    via freestanding C blitter (fb0)   |
-                       +---------------------------------------+
-                                           |
-                                           v
-                       +---------------------------------------+
-                       |  OpenRC Init & switch_root to RAM     |
-                       |  - Entire rootfs unpacked to tmpfs    |
-                       |  - vc4 / v3d DRM KMS initialized     |
-                       |  - Splash: "Searching media..."       |
-                       +---------------------------------------+
-                                           |
-                     +---------------------+---------------------+
-                     |                                           |
-                     v                                           v
-      +-----------------------------+             +-----------------------------+
-      | Video Payload <= 450 MB     |             | Video Payload > 450 MB      |
-      | - Copied to /run/kiosk-videos|             | - Stream directly from SD   |
-      | - SD card safely UNMOUNTED  |             | - Read-only VFS mount       |
-      | - Safe for live hot-eject!  |             +-----------------------------+
-      +-----------------------------+                            |
-                     |                                           |
-                     +---------------------+---------------------+
-                                           |
-                                           v
-                       +---------------------------------------+
-                       |  MPV Playback Engine (DRM KMS)        |
-                       |  - Gapless loop (--prefetch-playlist) |
-                       |  - V4L2 M2M hardware video decode     |
-                       |  - STEALTH MODE: All board LEDs OFF   |
-                       |  - Orientation: 0°, 90°, 180°, 270°   |
-                       +---------------------------------------+
-                                           |
-                                           v
-                       +---------------------------------------+
-                       |  Background Replug Watcher            |
-                       |  - Polling sysfs MMC host rescan      |
-                       |  - SD re-inserted or USB drive added? |
-                       |    -> "Rebooting..." + clean reset    |
-                       +---------------------------------------+
+```mermaid
+flowchart TD
+    A(["Power On / Hardware Reset"]) --> B["BCM2837 Firmware (config.txt)<br/>• arm_freq=1000, initial_turbo=20<br/>• Radios Disabled (Wi-Fi / BT)"]
+    B --> C["Alpine initramfs (Linux 6.18)<br/>• Green ACT LED blinking (100ms)<br/>• Early splash: 'Booting up...' via fbdraw"]
+    C --> D["OpenRC Init & switch_root to RAM<br/>• Rootfs unpacked to tmpfs<br/>• vc4 / v3d DRM KMS initialized<br/>• Splash: 'Searching media...'"]
+    D --> E{"Video Payload Size"}
+    E -- "<= 450 MB" --> F["In-RAM VFS Cache<br/>• Copied to /run/kiosk-videos (tmpfs)<br/>• SD card safely unmounted<br/>• Safe for live physical hot-ejection"]
+    E -- "> 450 MB" --> G["Direct Flash Stream<br/>• Retain read-only VFS mount<br/>• Stream directly from storage"]
+    F --> H["MPV Playback Engine (DRM KMS)<br/>• Gapless playlist loop (--prefetch-playlist)<br/>• V4L2 M2M hardware video decode<br/>• Stealth Mode: all onboard LEDs OFF<br/>• Orientation: 0°, 90°, 180°, 270°"]
+    G --> H
+    H --> I["Background Hotplug Watcher<br/>• Polling sysfs MMC bus rescan<br/>• SD re-inserted or USB drive added?"]
+    I -- "Media Detected" --> J["Clean Reboot Flow<br/>• Green ACT rapid flash (50ms)<br/>• Instant 'Rebooting...' screen"]
 ```
 
 ---
@@ -86,32 +42,6 @@ The system runs **100% in-RAM (`tmpfs`)** using a diskless Alpine Linux architec
 | **Media Management** | SSH, Samba, or ext4 partitions hidden on Windows | **Single FAT32 partition** visible on Windows, macOS, and Linux |
 | **Physical Hot-Swap** | Removing SD during playback causes kernel panic | **SD can be physically removed** while videos loop from RAM |
 | **Console on HDMI** | Kernel logs, login prompt, blinking cursor on screen | **Completely silent HDMI**; console isolated to GPIO 14/15 UART |
-
----
-
-## Operational State Indicators
-
-The kiosk provides clear visual feedback on both the HDMI display and the physical board LEDs across every phase of its lifecycle:
-
-### 1. HDMI Screen State Machine
-
-All graphics render in 1080p using official Inter typography on a pure black background, featuring a subtle emerald green (`#34D399`) version watermark and white author credits on the bottom-left corner:
-
-| State | Headline Title | Action Subtitle | Description |
-| :--- | :--- | :--- | :--- |
-| **Boot** | `Booting up...` | *Hang tight!* | Blitted to framebuffer (`/dev/fb0`) in early initramfs by `fbdraw`. |
-| **Scan** | `Searching media...` | *Hang tight!* | Rendered via DRM KMS during media discovery and in-RAM VFS copying. |
-| **No Media** | `No media found!` | *Please put content into media partition.* | Displayed statically when no valid video files exist on storage. |
-| **Reboot** | `Rebooting...` | *This might take a few seconds.* | Triggered immediately when an SD card or USB drive is inserted. |
-
-### 2. Hardware LED State Machine
-
-| Operational Phase | Green (ACT) LED | Red (PWR) LED | Meaning |
-| :--- | :--- | :--- | :--- |
-| **Boot / RAM Copy** | **Blinking (100ms)** | **OFF** | Active unpacking or copying video files into RAM |
-| **Video Playback** | **OFF** | **OFF** | **Stealth Mode:** No LED distraction in dark venue/exhibition |
-| **No Media Alert** | **OFF** | **Blinking (100ms)** | Attention required: no video files found on media partition |
-| **Replug / Reboot** | **Rapid Flash (50ms)** | **OFF** | New media detected; clean reboot initiated |
 
 ---
 
@@ -162,48 +92,16 @@ kiosk-orientation 90
 
 ---
 
-## Hardware Configuration & Diagnostics
-
-### 1. Dedicated PL011 Serial UART Console (GPIO 14/15)
-
-For maintenance, debugging, or headless inspection without disturbing the HDMI signage display, connect a 3.3V USB-to-UART adapter to the Raspberry Pi GPIO header:
-
-```
-Raspberry Pi 3 Header:
-  Pin  6  (GND) ---------> USB UART GND
-  Pin  8  (GPIO 14 / TX) -> USB UART RX
-  Pin 10  (GPIO 15 / RX) -> USB UART TX
-```
-
-- **Baud Rate:** `115200 8N1`
-- **Shell:** Direct unprompted root autologin with `xterm-256color`.
-- **Management Commands:**
-  ```bash
-  kiosk-player status     # View playback state, active playlist, and memory usage
-  kiosk-player restart    # Reload media and restart MPV
-  led status              # Inspect current trigger and brightness of ACT and PWR LEDs
-  led red blink           # Manually test error blinking
-  led stealth             # Turn off all onboard LEDs
-  ```
-
-### 2. Thermal & Power Mitigations
-
-- **Clock Cap (`arm_freq=1000`):** Fixed at 1000 MHz to prevent voltage sags on budget 5V power adapters and maintain low operating temperatures without noisy fans.
-- **Initial Turbo (`initial_turbo=20`):** Runs the CPU at full burst clock for the first 20 seconds to unpack system and copy media to RAM at maximum speed, then settles to 1000 MHz for sustained playback.
-- **Disabled Radios:** Onboard Wi-Fi and Bluetooth are disabled in firmware (`dtoverlay=disable-wifi`, `dtoverlay=disable-bt`) to eliminate RF interference and save power.
-
----
-
 ## Technical Documentation (`docs/`)
 
-For in-depth engineering breakdowns, refer to the technical guides in `docs/`:
+Deep architectural breakdowns, hardware schematics, and subsystem implementations are documented in dedicated guides:
 
-- [**System Architecture & Diskless Design**](docs/architecture.md) — Pure RAM execution, Alpine `apkovl` overlay system, and the boot sequence.
-- [**Display Pipeline & `fbdraw` Renderer**](docs/display-and-graphics.md) — Zero-libc freestanding AArch64 C renderer, DRM KMS handoff, and typography.
-- [**Hardware, Power & UART Backend**](docs/hardware-and-power.md) — BCM2837 clock caps, brownout prevention, and serial terminal autologin.
-- [**Media Caching & Playlist Engine**](docs/media-and-storage.md) — In-RAM tmpfs VFS, safe hot-ejection, and playlist prefetching.
-- [**Hotplug Watcher & MMC Bus Polling**](docs/hotplug-and-reboot.md) — Detecting SD insertion without a Card Detect pin and automated reboot flow.
-- [**Hardware LED State Machine**](docs/led-state-machine.md) — LED operational matrix and Linux kernel `ledtrig-timer` sysfs quirks.
+- [**System Architecture & Diskless Design**](docs/architecture.md) — Pure RAM execution, Alpine `apkovl` overlay system, and the end-to-end boot sequence.
+- [**Display Pipeline & `fbdraw` Renderer**](docs/display-and-graphics.md) — Zero-libc freestanding AArch64 C renderer, 4-state visual lifecycle, DRM KMS handoff, and typography.
+- [**Hardware, Power & UART Backend**](docs/hardware-and-power.md) — BCM2837 clock caps, brownout prevention, PL011 UART wiring, and serial autologin.
+- [**Hardware LED State Machine**](docs/led-state-machine.md) — LED operational state matrix, venue stealth mode, and Linux kernel `ledtrig-timer` sysfs quirks.
+- [**Media Caching & Playlist Engine**](docs/media-and-storage.md) — In-RAM tmpfs VFS, memory budget, safe live hot-ejection, and playlist prefetching.
+- [**Hotplug Watcher & MMC Bus Polling**](docs/hotplug-and-reboot.md) — Detecting SD insertion without a Card Detect pin and automated clean reboot flow.
 - [**Build System & Offline Tooling**](docs/build-system.md) — Reproducible offline rootless image generation with `apk.static` and `mtools`.
 
 ---
@@ -216,6 +114,9 @@ The entire appliance is built rootlessly on any modern Linux host (Arch Linux, C
 ```bash
 # Arch Linux / CachyOS:
 sudo pacman -S mtools dosfstools tar curl xz clang lld llvm python python-pillow
+
+# Debian / Ubuntu:
+sudo apt-get install curl tar gzip xz-utils parted dosfstools mtools clang lld llvm python3 python3-pil
 ```
 
 ### Build Command

@@ -51,56 +51,13 @@ Even when streaming large media files (> 450 MB) directly from disk, `/media/mmc
 
 The kiosk follows a streamlined execution path from hardware power-on to video playback on DRM KMS:
 
-```
-+-----------------------------------------------------------------------------------+
-| 1. BCM2837 Firmware Bootloader (GPU Stage)                                         |
-|    - Reads bootcode.bin & start.elf from FAT32 partition                          |
-|    - Loads configs/config.txt: arm_freq=1000, initial_turbo=20, dtoverlay=vc4-kms |
-|    - Initializes simplefb on HDMI at 1920x1080@60Hz                               |
-+-----------------------------------------------------------------------------------+
-                                          |
-                                          v
-+-----------------------------------------------------------------------------------+
-| 2. Linux Kernel (AArch64) Initialization                                          |
-|    - Uncompresses boot/vmlinuz-rpi with cmdline.txt parameters                    |
-|    - Hardware UART active on console=ttyAMA0,115200 (GPIO 14/15)                   |
-|    - HDMI console silenced (logo.nologo, vt.global_cursor_default=0)              |
-+-----------------------------------------------------------------------------------+
-                                          |
-                                          v
-+-----------------------------------------------------------------------------------+
-| 3. Alpine initramfs (/init execution)                                             |
-|    - Mounts /sys and sets Green ACT LED blinking (100ms timer trigger)            |
-|    - Mounts /dev (devtmpfs) and runs freestanding fbdraw:                         |
-|      Blits "Booting up..." (splash.ppm) to /dev/fb0 in < 15 milliseconds          |
-|    - Mounts FAT32 boot media (/media/mmcblk0p1)                                   |
-|    - Mounts tmpfs root filesystem on $sysroot                                     |
-|    - Unpacks rpi3-kiosk.apkovl.tar.gz into $sysroot                               |
-|    - Transfers control via switch_root                                            |
-+-----------------------------------------------------------------------------------+
-                                          |
-                                          v
-+-----------------------------------------------------------------------------------+
-| 4. Userspace Init (OpenRC & Inittab)                                              |
-|    - /etc/inittab starts OpenRC sysinit, boot, and default runlevels              |
-|    - Spawns autologin root shell on ttyAMA0 (xterm-256color)                      |
-|    - Intentionally omits tty1-tty6 to keep HDMI clean                             |
-|    - Starts OpenRC service: /etc/init.d/kiosk-player                              |
-+-----------------------------------------------------------------------------------+
-                                          |
-                                          v
-+-----------------------------------------------------------------------------------+
-| 5. Kiosk Playback Engine (/usr/bin/kiosk-player.sh)                               |
-|    - Loads vc4 and v3d kernel modules; waits for /dev/dri/card0                   |
-|    - Displays "Searching media..." via MPV on DRM KMS                             |
-|    - Reads orientation from orientation.txt (0, 90, 180, 270)                     |
-|    - Checks video payload size in /media/mmcblk0p1/videos:                        |
-|        <= 450 MB: Copies to /run/kiosk-videos (tmpfs), unmounts SD card           |
-|        > 450 MB:  Streams in-place from read-only storage                         |
-|    - Starts background replug watcher (sysfs MMC rescan + /dev/mmcblk0 polling)   |
-|    - Switches LEDs to STEALTH MODE (all LEDs off)                                 |
-|    - Launches MPV with gapless loop (--prefetch-playlist=yes, --loop-playlist=inf)|
-+-----------------------------------------------------------------------------------+
+```mermaid
+flowchart TD
+    S1["<b>1. BCM2837 Firmware Bootloader (GPU Stage)</b><br/>• Reads bootcode.bin & start.elf from FAT32 partition<br/>• Loads config.txt: arm_freq=1000, initial_turbo=20, dtoverlay=vc4-kms<br/>• Initializes simplefb on HDMI at 1920x1080@60Hz"]
+    --> S2["<b>2. Linux Kernel (AArch64) Initialization</b><br/>• Decompresses boot/vmlinuz-rpi with cmdline.txt<br/>• Hardware UART console active on ttyAMA0,115200 (GPIO 14/15)<br/>• HDMI console silenced (logo.nologo, vt.global_cursor_default=0)"]
+    --> S3["<b>3. Alpine initramfs (/init execution)</b><br/>• Mounts /sys & sets Green ACT LED blinking (100ms timer)<br/>• Freestanding fbdraw blits 'Booting up...' to /dev/fb0 in &lt; 15ms<br/>• Mounts FAT32 boot partition and unpacks apkovl into tmpfs<br/>• Transfers execution to RAM via switch_root"]
+    --> S4["<b>4. Userspace Init (OpenRC & Inittab)</b><br/>• /etc/inittab starts OpenRC sysinit, boot, & default runlevels<br/>• Spawns autologin root shell on ttyAMA0 (xterm-256color)<br/>• Intentionally omits tty1-tty6 to keep HDMI clean<br/>• Launches OpenRC daemon: /etc/init.d/kiosk-player"]
+    --> S5["<b>5. Kiosk Playback Engine (/usr/bin/kiosk-player.sh)</b><br/>• Loads vc4 & v3d DRM KMS modules; displays 'Searching media...'<br/>• Reads orientation from orientation.txt (0°, 90°, 180°, 270°)<br/>• Evaluates payload: &le; 450 MB caches to tmpfs & unmounts SD card<br/>• Starts background sysfs MMC replug watcher<br/>• Enters STEALTH MODE (all LEDs off) & starts gapless MPV loop"]
 ```
 
 ---

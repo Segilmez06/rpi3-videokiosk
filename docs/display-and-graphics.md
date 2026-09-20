@@ -8,45 +8,16 @@ The Raspberry Pi 3 Video Kiosk implements a seamless, silent graphics pipeline d
 
 The display engine guides the user through four distinct operational states, each paired with synchronized typography and consistent visual cues:
 
-```
-[ Power On ]
-      |
-      v
-+-----------------------------------------------------------------------------+
-| State 1: "Booting up..." (early initramfs)                                  |
-| Renderer: fbdraw (direct /dev/fb0 memory map)                               |
-| Subtitle: "Hang tight!"                                                     |
-| Purpose:  Immediate visual feedback (< 1.2s from cold power).               |
-+-----------------------------------------------------------------------------+
-      |
-      v
-+-----------------------------------------------------------------------------+
-| State 2: "Searching media..." (userspace start)                             |
-| Renderer: MPV on DRM KMS (--vo=gpu --gpu-context=drm)                       |
-| Subtitle: "Hang tight!"                                                     |
-| Purpose:  Covers MMC mount, directory discovery, and in-RAM VFS copying.    |
-+-----------------------------------------------------------------------------+
-      |
-      +---------------------------------+
-      | Media Found                     | No Media Found
-      v                                 v
-+------------------------------------+  +-------------------------------------+
-| State: Video Playback Loop         |  | State 3: "No media found!"          |
-| Renderer: MPV (VC4 Gallium DRM)    |  | Renderer: MPV on DRM KMS (static)   |
-| Audio: Silent / disabled           |  | Subtitle: "Please put content into  |
-| LEDs: Stealth mode (all off)       |  |            media partition."        |
-+------------------------------------+  | LEDs: Red PWR blinking (100ms)      |
-      |                                 +-------------------------------------+
-      | Media Replug / New Card Added                      |
-      +----------------------------------------------------+
-      |
-      v
-+-----------------------------------------------------------------------------+
-| State 4: "Rebooting..." (hotplug event)                                     |
-| Renderer: MPV DRM KMS + fbdraw fb0 fallback                                 |
-| Subtitle: "This might take a few seconds."                                  |
-| Purpose:  Instant acknowledgment of card insertion before clean reboot.     |
-+-----------------------------------------------------------------------------+
+```mermaid
+flowchart TD
+    P(["Power On"]) --> S1["<b>State 1: 'Booting up...'</b> (early initramfs)<br/>• Renderer: fbdraw (direct /dev/fb0 memory map)<br/>• Subtitle: 'Hang tight!'<br/>• Purpose: Immediate visual feedback (&lt; 1.2s from cold power)"]
+    S1 --> S2["<b>State 2: 'Searching media...'</b> (userspace start)<br/>• Renderer: MPV on DRM KMS (--vo=gpu --gpu-context=drm)<br/>• Subtitle: 'Hang tight!'<br/>• Purpose: Covers MMC mount, directory discovery, and VFS copying"]
+    S2 --> D{"Media Found?"}
+    D -- "Yes" --> S_PLAY["<b>State: Video Playback Loop</b><br/>• Renderer: MPV (VC4 Gallium DRM KMS)<br/>• Audio: Silent / disabled<br/>• LEDs: Stealth mode (all off)"]
+    D -- "No" --> S3["<b>State 3: 'No media found!'</b><br/>• Renderer: MPV on DRM KMS (static)<br/>• Subtitle: 'Please put content into media partition.'<br/>• LEDs: Red PWR blinking (100ms)"]
+    S_PLAY --> R["Media Replug / New Card Added"]
+    S3 --> R
+    R --> S4["<b>State 4: 'Rebooting...'</b> (hotplug event)<br/>• Renderer: MPV DRM KMS + fbdraw fb0 fallback<br/>• Subtitle: 'This might take a few seconds.'<br/>• Purpose: Instant acknowledgment before clean reboot"]
 ```
 
 ### Visual State Specification

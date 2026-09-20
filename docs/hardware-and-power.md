@@ -77,14 +77,21 @@ enable_uart=1
 
 ### 4.1 Physical Pinout Reference (40-Pin GPIO Header)
 
-```
-                       Raspberry Pi 3 Model B Header (J8)
-                                    3.3V  ( 1) ( 2)  5V
-                                   GPIO2  ( 3) ( 4)  5V
-                                   GPIO3  ( 5) ( 6)  GND ------------------> USB UART GND (Pin 6)
-                                   GPIO4  ( 7) ( 8)  GPIO14 (TX) ----------> USB UART RX  (Pin 8)
-                                     GND  ( 9) (10)  GPIO15 (RX) <---------- USB UART TX  (Pin 10)
-                                  GPIO17  (11) (12)  GPIO18
+```mermaid
+flowchart LR
+    subgraph RPi["Raspberry Pi 3 Header (J8)"]
+        GND["<b>Pin 6 (GND)</b><br/>Signal Ground"]
+        TX["<b>Pin 8 (GPIO 14)</b><br/>PL011_TXD (3.3V)"]
+        RX["<b>Pin 10 (GPIO 15)</b><br/>PL011_RXD (3.3V)"]
+    end
+    subgraph USB["3.3V USB-to-UART Adapter"]
+        UGND["<b>GND</b>"]
+        URX["<b>RXD</b>"]
+        UTX["<b>TXD</b>"]
+    end
+    GND <-->|Common Ground| UGND
+    TX -->|Serial Out| URX
+    UTX -->|Serial In| RX
 ```
 
 | Header Pin | Function | BCM GPIO | Direction | UART Adapter Connection |

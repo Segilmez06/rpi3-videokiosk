@@ -8,33 +8,15 @@ The media subsystem in [`/usr/bin/kiosk-player.sh`](file:///home/sarp/rpi3-video
 
 The appliance implements an automated memory-budgeting algorithm to determine whether media files should be cached directly into RAM or streamed from physical storage:
 
-```
-                      Discovered Media Files in videos/
-                                     |
-                                     v
-                        Calculate Total Payload Size
-                                (du -sk)
-                                     |
-                 +-------------------+-------------------+
-                 |                                       |
-                 v                                       v
-        Total Size <= 450 MB                    Total Size > 450 MB
-                 |                                       |
-                 v                                       v
-    Copy to /run/kiosk-videos (tmpfs)        Retain Read-Only Disk Mount
-    ACT LED blinks 100ms during copy         Stream directly from flash
-                 |                                       |
-                 v                                       |
-        sync && umount SD card                           |
-   (SD can be safely physically ejected)                 |
-                 |                                       |
-                 +-------------------+-------------------+
-                                     |
-                                     v
-                          Generate /run/kiosk-playlist.txt
-                                     |
-                                     v
-                         MPV DRM KMS Playback Engine
+```mermaid
+flowchart TD
+    M(["Discovered Media Files in videos/"]) --> S["Calculate Total Payload Size (du -sk)"]
+    S --> C{"Total Size &le; 450 MB?"}
+    C -- "Yes (&le; 450 MB)" --> RAM["<b>Copy to /run/kiosk-videos (tmpfs)</b><br/>• ACT LED blinks 100ms during copy<br/>• sync &amp;&amp; umount SD card<br/>• SD card can be safely physically ejected"]
+    C -- "No (&gt; 450 MB)" --> RO["<b>Retain Read-Only Storage Mount</b><br/>• Stream directly from flash<br/>• Zero write wear"]
+    RAM --> P["Generate /run/kiosk-playlist.txt"]
+    RO --> P
+    P --> PLAY["MPV DRM KMS Playback Engine"]
 ```
 
 ### 1.1 Memory Allocation Budget (1 GB Total SDRAM)

@@ -24,6 +24,23 @@ The Raspberry Pi 3 Model B routes its status LEDs differently from earlier model
 
 ## 2. Operational State Matrix
 
+```mermaid
+stateDiagram-v2
+    [*] --> Boot: Power On
+    Boot: Green ACT Blinking (100ms)<br/>Red PWR OFF
+    Boot --> MediaScan: Kernel Init & Mounts
+    MediaScan: Green ACT Blinking (100ms)<br/>Red PWR OFF
+    MediaScan --> Playback: Media Found (&le;450MB cached)
+    MediaScan --> Playback: Media Found (&gt;450MB stream)
+    MediaScan --> NoMedia: No Valid Video Files
+    Playback: STEALTH MODE<br/>Green ACT OFF<br/>Red PWR OFF
+    NoMedia: ERROR BEACON<br/>Green ACT OFF<br/>Red PWR Blinking (100ms)
+    Playback --> Reboot: New SD or USB Inserted
+    NoMedia --> Reboot: Media Card Inserted
+    Reboot: REBOOT IN PROGRESS<br/>Green ACT Rapid Flash (50ms)<br/>Red PWR OFF
+    Reboot --> [*]: Hardware Reset
+```
+
 | Operational Phase | Green (ACT) LED | Red (PWR) LED | Trigger / Timing | Intended Meaning |
 | :--- | :--- | :--- | :--- | :--- |
 | **Early Initramfs Boot** | **Blinking (100ms)** | **OFF** | `timer`, `delay_on=100`, `delay_off=100` | Kernel up; unpacking Alpine rootfs to RAM |

@@ -8,27 +8,16 @@ Most embedded Linux image builders (such as `pi-gen`, Yocto, or Buildroot) requi
 
 ## 1. Pipeline Overview
 
-```
- Host Machine (x86_64 or aarch64 Linux)
-                    |
-                    v
- [1. Alpine Base Tarball] ---------> Download & cache alpine-rpi-3.24.2-aarch64.tar.gz
-                    |
- [2. apk.static Tooling] ----------> Download static apk binary & extract RSA developer keys
-                    |
- [3. Initramfs Injection] ---------> Unpack cpio, inject fbdraw C binary + LED triggers, repack
-                    |
- [4. Offline Package Repo] --------> apk.static fetches mpv, mesa, eudev for aarch64
-                    |
- [5. Overlay Creation] ------------> Pack /etc, /usr into rpi3-kiosk.apkovl.tar.gz
-                    |
- [6. User-Space Filesystem] -------> mkfs.vfat + mcopy creates FAT32 MBR partition without sudo
-                    |
-                    +-----------------------+-----------------------+
-                    |                                               |
-                    v                                               v
-        [alpine-kiosk-sdcard.tar.gz]                     [alpine-kiosk.img.xz]
-      Direct extraction to any FAT32 SD               Raw compressed disk image for dd
+```mermaid
+flowchart TD
+    HOST(["<b>Host Machine</b><br/>(x86_64 or aarch64 Linux)"]) --> B1["<b>1. Base System Tarball</b><br/>Download &amp; cache alpine-rpi-3.24.2-aarch64.tar.gz"]
+    B1 --> B2["<b>2. Static Tooling &amp; Keys</b><br/>Download apk.static binary &amp; extract RSA developer keys"]
+    B2 --> B3["<b>3. Initramfs Injection</b><br/>Unpack cpio, inject fbdraw C binary + LED triggers, repack"]
+    B3 --> B4["<b>4. Offline Package Repositories</b><br/>apk.static fetches mpv, mesa, eudev, alsa for aarch64"]
+    B4 --> B5["<b>5. Appliance Overlay Creation</b><br/>Package /etc, /usr into rpi3-kiosk.apkovl.tar.gz"]
+    B5 --> B6["<b>6. User-Space Partitioning &amp; VFS</b><br/>parted + mkfs.vfat + mcopy creates FAT32 MBR partition without sudo"]
+    B6 --> O1["<b>Output A: alpine-kiosk-sdcard.tar.gz</b><br/>Direct extraction to existing FAT32 SD card"]
+    B6 --> O2["<b>Output B: alpine-kiosk.img.xz</b><br/>Raw compressed disk image for dd or Raspberry Pi Imager"]
 ```
 
 ---
