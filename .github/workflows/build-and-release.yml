@@ -49,7 +49,12 @@ jobs:
           echo "Publishing release for ${TAG}..."
 
           if gh release view "${TAG}" >/dev/null 2>&1; then
-            echo "Release ${TAG} already exists. Uploading new build assets..."
+            echo "Release ${TAG} already exists. Updating release notes and assets..."
+            gh api -X POST "/repos/${{ github.repository }}/releases/generate-notes" \
+              -f tag_name="${TAG}" \
+              -f target_commitish="main" \
+              --jq .body | gh release edit "${TAG}" --notes-file -
+
             gh release upload "${TAG}" \
               output/alpine-kiosk.img.xz \
               output/alpine-kiosk-sdcard.tar.gz \
@@ -61,6 +66,7 @@ jobs:
               output/alpine-kiosk.img.xz \
               output/alpine-kiosk-sdcard.tar.gz \
               output/SHA256SUMS \
+              --target main \
               --title "Video Kiosk ${TAG}" \
               --generate-notes
           fi

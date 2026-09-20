@@ -1,0 +1,20 @@
+changelog:
+  categories:
+    - title: "🚀 Features & Enhancements"
+      labels:
+        - "feature"
+        - "enhancement"
+        - "feat"
+    - title: "🐛 Bug Fixes"
+      labels:
+        - "fix"
+        - "bug"
+    - title: "📖 Documentation"
+      labels:
+        - "documentation"
+        - "docs"
+    - title: "🛠️ Build & Infrastructure"
+      labels:
+        - "ci"
+        - "build"
+        - "chore"
