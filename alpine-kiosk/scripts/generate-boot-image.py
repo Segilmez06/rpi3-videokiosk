@@ -44,8 +44,8 @@ def main():
         title_font = ImageFont.load_default()
         desc_font = ImageFont.load_default()
 
-    title_text = "Starting Video Kiosk..."
-    desc_text = "Preparing media in RAM for seamless playback"
+    title_text = "Hang tight!"
+    desc_text = "Copying data to RAM."
 
     # Draw a minimalist, elegant loading dot accent above text
     center_x = WIDTH // 2
