@@ -71,3 +71,4 @@ Commercial-grade, plug-and-play digital signage video kiosk for Raspberry Pi 3 M
     - Replaced all static ASCII schematics across documentation with interactive GitHub-native Mermaid flowcharts and state diagrams.
     - Streamlined `README.md`, moving deep system architecture and benchmark tables into dedicated documentation in `docs/architecture.md`.
     - Standardized SD card flashing command to `bs=64k status=progress oflag=sync` across all documentation and build scripts.
+    - Hardened UART security (SEC-01): Replaced unprompted root autologin with authenticated serial console, locked system accounts, and enabled optional SD card `password.txt` dynamic override.

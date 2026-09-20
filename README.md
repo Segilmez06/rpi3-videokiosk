@@ -62,7 +62,7 @@ Deep architectural breakdowns, hardware schematics, and subsystem implementation
 
 - [**System Architecture & Diskless Design**](docs/architecture.md) — Pure RAM execution, Alpine `apkovl` overlay system, architectural comparison, and the end-to-end boot sequence.
 - [**Display Pipeline & `fbdraw` Renderer**](docs/display-and-graphics.md) — Zero-libc freestanding AArch64 C renderer, 4-state visual lifecycle, DRM KMS handoff, and typography.
-- [**Hardware, Power & UART Backend**](docs/hardware-and-power.md) — BCM2837 clock caps, brownout prevention, PL011 UART wiring, and serial autologin.
+- [**Hardware, Power & UART Backend**](docs/hardware-and-power.md) — BCM2837 clock caps, brownout prevention, PL011 UART wiring, and authenticated serial console.
 - [**Hardware LED State Machine**](docs/led-state-machine.md) — LED operational state matrix, venue stealth mode, and Linux kernel `ledtrig-timer` sysfs quirks.
 - [**Media Caching & Playlist Engine**](docs/media-and-storage.md) — In-RAM tmpfs VFS, memory budget, safe live hot-ejection, and playlist prefetching.
 - [**Hotplug Watcher & MMC Bus Polling**](docs/hotplug-and-reboot.md) — Detecting SD insertion without a Card Detect pin and automated clean reboot flow.
