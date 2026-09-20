@@ -83,7 +83,7 @@ Alpine Linux diskless systems use the `.apkovl.tar.gz` mechanism to persist conf
 - The overlay contains:
   - `/etc/init.d/kiosk-player` (OpenRC daemon managing DRM KMS and MPV).
   - `/etc/udev/rules.d/99-kiosk-replug.rules` (Media hotplug events).
-  - `/etc/inittab` (Configured for quiet boot and PL011 autologin).
+  - `/etc/inittab` and `/etc/shadow` (Configured for quiet boot and authenticated PL011 UART login).
   - `/usr/bin/led` and `/usr/bin/kiosk-orientation` management tools.
 
 ---

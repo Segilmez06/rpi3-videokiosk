@@ -1,4 +1,0 @@
-#!/bin/sh
-# Autologin launcher for serial console
-# Runs Busybox ash as a login shell so /etc/profile and /etc/profile.d/*.sh are sourced
-exec /bin/sh -l

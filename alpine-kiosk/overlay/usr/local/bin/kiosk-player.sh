@@ -60,6 +60,26 @@ find_boot_splash() {
     return 1
 }
 
+# Configure root password from SD card if password.txt is provided (SEC-01)
+configure_root_password() {
+    if [ ! -d /media/mmcblk0p1/videos ] && [ -b /dev/mmcblk0p1 ] && ! mountpoint -q /media/mmcblk0p1 2>/dev/null; then
+        mkdir -p /media/mmcblk0p1 2>/dev/null
+        mount -t vfat -o ro,noatime,umask=000 /dev/mmcblk0p1 /media/mmcblk0p1 2>/dev/null || true
+    fi
+
+    for f in /media/mmcblk0p1/password.txt /media/*/password.txt /videos/password.txt /password.txt; do
+        if [ -f "$f" ]; then
+            PASS=$(head -n 1 "$f" 2>/dev/null | tr -d '\r\n')
+            if [ -n "$PASS" ]; then
+                if echo "root:$PASS" | chpasswd 2>/dev/null || echo "root:$PASS" | busybox chpasswd 2>/dev/null; then
+                    echo "[kiosk-player] Root password configured from $f" >&2
+                fi
+            fi
+            break
+        fi
+    done
+}
+
 # Display searching media screen on HDMI via MPV on DRM KMS
 start_searching_splash() {
     ROT=$(read_orientation)
@@ -114,6 +134,9 @@ while [ ! -e /dev/dri/card0 ] && [ $count -lt 50 ]; do
     sleep 0.1
     count=$((count + 1))
 done
+
+# Apply optional root password override from SD card
+configure_root_password
 
 # Present searching media screen immediately upon entering userspace DRM KMS
 start_searching_splash

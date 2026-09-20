@@ -1,6 +1,6 @@
 # Raspberry Pi 3 Video Kiosk
 
-[![Version](https://img.shields.io/badge/version-0.9-34D399.svg)](https://github.com/Segilmez06/rpi3-videokiosk/releases)
+[![Version](https://img.shields.io/badge/version-0.9.1-34D399.svg)](https://github.com/Segilmez06/rpi3-videokiosk/releases)
 [![Target](https://img.shields.io/badge/target-Raspberry%20Pi%203%20Model%20B-c51a4a.svg?logo=raspberry-pi)](https://www.raspberrypi.com/products/raspberry-pi-3-model-b/)
 [![Architecture](https://img.shields.io/badge/arch-aarch64-blue.svg)](https://en.wikipedia.org/wiki/AArch64)
 [![OS](https://img.shields.io/badge/base-Alpine%20Linux%203.24.2-0d597f.svg?logo=alpinelinux)](https://alpinelinux.org/)
@@ -62,7 +62,7 @@ Deep architectural breakdowns, hardware schematics, and subsystem implementation
 
 - [**System Architecture & Diskless Design**](docs/architecture.md) — Pure RAM execution, Alpine `apkovl` overlay system, architectural comparison, and the end-to-end boot sequence.
 - [**Display Pipeline & `fbdraw` Renderer**](docs/display-and-graphics.md) — Zero-libc freestanding AArch64 C renderer, 4-state visual lifecycle, DRM KMS handoff, and typography.
-- [**Hardware, Power & UART Backend**](docs/hardware-and-power.md) — BCM2837 clock caps, brownout prevention, PL011 UART wiring, and serial autologin.
+- [**Hardware, Power & UART Backend**](docs/hardware-and-power.md) — BCM2837 clock caps, brownout prevention, PL011 UART wiring, and authenticated serial console.
 - [**Hardware LED State Machine**](docs/led-state-machine.md) — LED operational state matrix, venue stealth mode, and Linux kernel `ledtrig-timer` sysfs quirks.
 - [**Media Caching & Playlist Engine**](docs/media-and-storage.md) — In-RAM tmpfs VFS, memory budget, safe live hot-ejection, and playlist prefetching.
 - [**Hotplug Watcher & MMC Bus Polling**](docs/hotplug-and-reboot.md) — Detecting SD insertion without a Card Detect pin and automated clean reboot flow.

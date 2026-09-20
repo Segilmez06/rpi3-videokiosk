@@ -105,28 +105,29 @@ flowchart LR
 
 ---
 
-## 5. Instant Headless Autologin & HDMI Isolation
+## 5. Authenticated Headless Serial Console & HDMI Isolation
 
 ### 5.1 Console Decoupling via inittab
 The serial backend is completely decoupled from the video display output. In [`alpine-kiosk/overlay/etc/inittab`](file:///home/sarp/rpi3-videokiosk/alpine-kiosk/overlay/etc/inittab#L6-L12):
 ```ini
 # Physical Serial UART Console on Raspberry Pi 3 (GPIO 14/15, Pins 8/10/6)
-# Instant unprompted root shell at 115200 baud with xterm-256color as login shell
-ttyAMA0::respawn:/sbin/getty -L 115200 ttyAMA0 xterm-256color -n -l /sbin/autologin
+# Standard authentication-gated login prompt at 115200 baud with xterm-256color
+ttyAMA0::respawn:/sbin/getty -L 115200 ttyAMA0 xterm-256color
 
 # Virtual consoles (Disabled on HDMI for pure digital signage kiosk)
 # tty1 is intentionally not spawned to prevent any login prompt or shell on HDMI
 ```
 
-### 5.2 Autologin Wrapper
-The autologin launcher [`alpine-kiosk/overlay/sbin/autologin`](file:///home/sarp/rpi3-videokiosk/alpine-kiosk/overlay/sbin/autologin) executes:
-```sh
-#!/bin/sh
-exec /bin/sh -l
-```
-This bypasses password prompts and invokes BusyBox ash as a full login shell, sourcing [`/etc/profile`](file:///home/sarp/rpi3-videokiosk/alpine-kiosk/overlay/etc/profile.d/kiosk.sh) and exporting:
+### 5.2 Authentication & Password Configuration (SEC-01)
+To protect kiosk deployments against unauthenticated physical serial tampering:
+- **Default Credentials:** Username `root`, default password `kiosk`.
+- **System Accounts Locked:** All daemon accounts (`bin`, `daemon`, `sshd`, etc.) in `/etc/shadow` are locked with `!`.
+- **Dynamic SD Card Override:** Operators can configure a custom root password by placing a single line of text in `password.txt` on the FAT32 boot partition (e.g. `/media/mmcblk0p1/password.txt`). During boot, [`kiosk-player.sh`](file:///home/sarp/rpi3-videokiosk/alpine-kiosk/overlay/usr/bin/kiosk-player.sh) reads `password.txt` and dynamically updates the root password in RAM tmpfs.
+
+Once authenticated, BusyBox ash starts as a full login shell, sourcing [`/etc/profile.d/kiosk.sh`](file:///home/sarp/rpi3-videokiosk/alpine-kiosk/overlay/etc/profile.d/kiosk.sh) and exporting:
 - `TERM=xterm-256color`
-- Full command PATH to `/usr/local/bin:/usr/bin:/bin:/sbin`
+- Dynamic terminal window sizing
+- Serial management banner and kiosk maintenance commands (`kiosk-player`, `led`)
 
 ### 5.3 Complete HDMI Silence
 In [`alpine-kiosk/configs/cmdline.txt`](file:///home/sarp/rpi3-videokiosk/alpine-kiosk/configs/cmdline.txt):

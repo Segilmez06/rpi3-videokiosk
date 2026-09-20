@@ -5,7 +5,11 @@ Commercial-grade, plug-and-play digital signage video kiosk for Raspberry Pi 3 M
 
 ## Versioning Policy & Workflow Rules
 - **Single Source of Truth:** The project version is stored in `VERSION` at the repository root.
-- **Rule - Mandatory Version Increment:** Whenever a new big feature or major architectural/functional update is added, the version number in `VERSION` MUST be incremented, screen assets regenerated via `alpine-kiosk/scripts/generate-screens.py`, and the milestone recorded in `GEMINI.md`.
+- **Rule - Version Increment:**
+  - **Major Features (0.x):** Whenever a new big feature or major architectural/functional update is added, increment the minor version (e.g. `v0.9`, `v0.10`).
+  - **Hotfixes & Small Changes (0.x.y):** Incremental improvements, bug fixes, CI/CD tweaks, and minor enhancements use `.increment` format (e.g. `v0.9.1`).
+- **Rule - Mandatory Asset Regeneration:** After any version increment, screen assets MUST be regenerated via `alpine-kiosk/scripts/generate-screens.py`, and the milestone recorded in `GEMINI.md`.
+- **Rule - Branching & Verification:** Work is tracked and pushed to the remote `dev` branch. Pull requests into `main` must pass all pre-merge CI verification checks and be verified before merging.
 - **Watermark Format:** All screen graphics display `"Video Kiosk <VERSION> (<short-hash>)"` in emerald green (`#34D399`) and `"by Sarp Eren EGILMEZ"` in pure white (`#FFFFFF`) on the bottom-left corner using Inter Medium font.
 
 ---
@@ -61,3 +65,10 @@ Commercial-grade, plug-and-play digital signage video kiosk for Raspberry Pi 3 M
      3. `"No media found!"` (persistent alert with instructions when no videos exist)
      4. `"Rebooting..."` (instant visible screen when SD/USB replug is detected)
    - Synchronized titles with progress ellipsis (`...`) and clear user-facing action subtitles (`"Hang tight!"`, `"This might take a few seconds."`, `"Please put content into media partition."`).
+
+10. **v0.9.1: Hotfix, CI/CD Automation & Documentation Overhaul**
+    - Integrated GitHub Actions automated build and release pipeline targeting `main` with native auto-generated release notes.
+    - Replaced all static ASCII schematics across documentation with interactive GitHub-native Mermaid flowcharts and state diagrams.
+    - Streamlined `README.md`, moving deep system architecture and benchmark tables into dedicated documentation in `docs/architecture.md`.
+    - Standardized SD card flashing command to `bs=64k status=progress oflag=sync` across all documentation and build scripts.
+    - Hardened UART security (SEC-01): Replaced unprompted root autologin with authenticated serial console, locked system accounts, and enabled optional SD card `password.txt` dynamic override.

@@ -4,6 +4,15 @@ All notable changes to the Raspberry Pi 3 Video Kiosk appliance are documented i
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.9.1] - 2026-09-20
+### Fixed & Improved
+- **CI/CD Automated Release Notes**: Configured `.github/release.yml` and GitHub Actions pipeline to dynamically generate categorization and contributor attribution using GitHub's native release notes engine.
+- **Documentation Schematics**: Replaced all ASCII schematics across `docs/` with interactive GitHub-native Mermaid diagrams (`flowchart TD`, `stateDiagram-v2`, `flowchart LR`).
+- **Streamlined README**: Relocated the architectural overview and benchmark comparison into `docs/architecture.md` and removed legacy markdown separators.
+- **SD Card Flashing Command**: Standardized raw flash command syntax to `bs=64k status=progress oflag=sync` across documentation and build scripts.
+- **Screen Asset Watermarks**: Updated splash screens to display `Video Kiosk 0.9.1 (<git-hash>)`.
+- **Security Hardening (SEC-01 Fix)**: Enforced authenticated login on physical PL011 UART serial console (`ttyAMA0`). Removed `/sbin/autologin`, locked system daemon accounts in `/etc/shadow`, set default root credentials (`kiosk`), and added dynamic SD card `password.txt` override during boot.
+
 ---
 
 ## [v0.9] - 2026-09-20
