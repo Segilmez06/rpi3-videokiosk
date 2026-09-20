@@ -60,6 +60,17 @@ find_boot_splash() {
 
 # Display boot splash screen on HDMI during early boot & RAM copy
 show_boot_splash() {
+    # 1. Fast direct framebuffer blit if available
+    if [ -x /usr/bin/fbdraw ] && [ -e /dev/fb0 ]; then
+        for img in /media/mmcblk0p1/splash.ppm /usr/share/videokiosk/booting.ppm; do
+            if [ -f "$img" ]; then
+                /usr/bin/fbdraw "$img" /dev/fb0 2>/dev/null || true
+                return 0
+            fi
+        done
+    fi
+
+    # 2. Fallback to MPV DRM if already in default runlevel
     [ -f /run/kiosk-splash.pid ] && return 0
     SPLASH=$(find_boot_splash)
     if [ -n "$SPLASH" ]; then
@@ -329,6 +340,11 @@ while true; do
         done
     else
         echo "[kiosk-player] No video files found. Displaying no-media screen & blinking Red LED (100ms)..." >&2
+
+        # On initial startup, keep boot splash visible for 2 seconds before showing no-media alert
+        if [ ! -f /run/kiosk-ready ]; then
+            sleep 2
+        fi
 
         # Dismiss boot splash screen before displaying no-media screen
         hide_boot_splash

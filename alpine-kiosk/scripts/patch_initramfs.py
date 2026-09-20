@@ -2,7 +2,7 @@
 """
 Patch Alpine initramfs /init script to inject hardware LED state machine & early boot splash:
 1. Red PWR LED OFF, Green ACT starts blinking with 100ms delay
-2. Display boot splash screen immediately on HDMI framebuffer (/dev/fb0)
+2. Display boot splash screen immediately on HDMI framebuffer (/dev/fb0) via freestanding fbdraw
 3. Once unpacking is complete, Red stays OFF and Green ACT starts SOLID ON
 """
 import sys
@@ -20,6 +20,7 @@ def patch_initramfs(initramfs_path):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     root_dir = os.path.dirname(os.path.dirname(script_dir))
     boot_png = os.path.join(root_dir, "assets", "booting.png")
+    fbdraw_c = os.path.join(script_dir, "fbdraw.c")
 
     workdir = tempfile.mkdtemp(prefix="initramfs_patch_")
     backup_path = initramfs_path + ".orig"
@@ -31,7 +32,24 @@ def patch_initramfs(initramfs_path):
         subprocess.check_call(["cpio", "-idm"], cwd=workdir, stdin=p1.stdout, stderr=subprocess.DEVNULL)
         p1.wait()
 
-        # Convert boot splash image to Netpbm PPM for busybox fbsplash
+        # Compile freestanding aarch64 fbdraw utility
+        fbdraw_bin = os.path.join(workdir, "bin", "fbdraw")
+        if os.path.isfile(fbdraw_c):
+            print("[*] Compiling freestanding fbdraw utility for direct framebuffer splash...")
+            cmd = [
+                "clang", "-target", "aarch64-linux-gnu", "-fuse-ld=lld",
+                "-static", "-nostdlib", "-fno-stack-protector", "-O2",
+                fbdraw_c, "-o", fbdraw_bin
+            ]
+            subprocess.check_call(cmd)
+            try:
+                subprocess.check_call(["llvm-strip", fbdraw_bin], stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
+            os.chmod(fbdraw_bin, 0o755)
+            print(f"[+] Compiled freestanding fbdraw: {os.path.getsize(fbdraw_bin)} bytes")
+
+        # Convert boot splash image to Netpbm PPM for fbdraw
         if os.path.isfile(boot_png):
             print(f"[*] Injecting early boot splash from {boot_png} into initramfs...")
             im = Image.open(boot_png).convert("RGB")
@@ -64,13 +82,15 @@ done"""
         code_dev = """$MOCK mount -t devtmpfs -o exec,nosuid,mode=0755,size=2M devtmpfs /dev 2>/dev/null \\
 \t|| $MOCK mount -t tmpfs -o exec,nosuid,mode=0755,size=2M tmpfs /dev
 # Video Kiosk: Immediately paint boot splash image to HDMI framebuffer
-if [ -f /splash.ppm ]; then
-    for _fb in /dev/fb0 /dev/fb/0; do
-        if [ -e "$_fb" ]; then
-            fbsplash -s /splash.ppm -c -d "$_fb" 2>/dev/null || true
-            break
-        fi
-    done
+if [ -x /bin/fbdraw ] && [ -f /splash.ppm ]; then
+    (
+        for _try in 1 2 3 4 5 6 7 8 9 10; do
+            if [ -e /dev/fb0 ] || [ -e /dev/fb/0 ]; then
+                /bin/fbdraw /splash.ppm /dev/fb0 2>/dev/null && break
+            fi
+            sleep 0.1
+        done
+    ) &
 fi"""
 
         target2 = "exec switch_root $switch_root_opts $sysroot $chart_init \"$KOPT_init\" $KOPT_init_args"
@@ -116,7 +136,7 @@ exec switch_root $switch_root_opts $sysroot $chart_init "$KOPT_init" $KOPT_init_
             cpio_proc.stdout.close()
             gzip_proc.communicate()
 
-        print(f"[+] Successfully injected LED sequence and boot splash into {initramfs_path}")
+        print(f"[+] Successfully injected LED sequence and fbdraw splash into {initramfs_path}")
         os.unlink(backup_path)
         return 0
     finally:

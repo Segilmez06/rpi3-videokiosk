@@ -166,12 +166,26 @@ cp "${SCRIPT_DIR}/configs/cmdline.txt" "${STAGING_DIR}/cmdline.txt"
 echo "[*] Building appliance overlay archive (rpi3-kiosk.apkovl.tar.gz)..."
 APKOVL_FILE="${STAGING_DIR}/rpi3-kiosk.apkovl.tar.gz"
 
+# Compile freestanding fbdraw utility for overlay
+if [ -f "${SCRIPT_DIR}/scripts/fbdraw.c" ]; then
+    echo "[*] Compiling freestanding fbdraw utility for appliance overlay..."
+    clang -target aarch64-linux-gnu -fuse-ld=lld -static -nostdlib -fno-stack-protector -O2 \
+        "${SCRIPT_DIR}/scripts/fbdraw.c" -o "${SCRIPT_DIR}/overlay/usr/bin/fbdraw"
+    llvm-strip "${SCRIPT_DIR}/overlay/usr/bin/fbdraw" 2>/dev/null || true
+    chmod 755 "${SCRIPT_DIR}/overlay/usr/bin/fbdraw"
+fi
+
 mkdir -p "${SCRIPT_DIR}/overlay/usr/share/videokiosk"
 if [ -f "${ROOT_DIR}/assets/no-media.png" ]; then
     cp "${ROOT_DIR}/assets/no-media.png" "${SCRIPT_DIR}/overlay/usr/share/videokiosk/no-media.png"
 fi
 if [ -f "${ROOT_DIR}/assets/booting.png" ]; then
     cp "${ROOT_DIR}/assets/booting.png" "${SCRIPT_DIR}/overlay/usr/share/videokiosk/booting.png"
+    python3 -c "
+from PIL import Image
+im = Image.open('${ROOT_DIR}/assets/booting.png').convert('RGB')
+im.save('${SCRIPT_DIR}/overlay/usr/share/videokiosk/booting.ppm', format='PPM')
+" 2>/dev/null || true
 fi
 
 # Create apkovl tar.gz preserving root ownership
