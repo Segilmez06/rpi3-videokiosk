@@ -63,19 +63,19 @@ present_boot_splash() {
     SPLASH=$(find_boot_splash)
     ROT=$(read_orientation)
     if [ -n "$SPLASH" ] && [ -e /dev/dri/card0 ]; then
-        echo "[kiosk-player] Presenting boot splash for 4s ($SPLASH, rotate=$ROT deg)..." >&2
+        echo "[kiosk-player] Presenting boot splash ($SPLASH, rotate=$ROT deg)..." >&2
         /usr/bin/mpv \
             --no-config \
             --vo=gpu \
             --gpu-context=drm \
             --video-rotate="$ROT" \
-            --image-display-duration=4 \
+            --image-display-duration=2 \
             "$SPLASH" > /run/kiosk-mpv.log 2>&1
     elif [ -x /usr/bin/fbdraw ] && [ -e /dev/fb0 ]; then
         for img in /media/mmcblk0p1/splash.ppm /usr/share/videokiosk/booting.ppm; do
             if [ -f "$img" ]; then
                 /usr/bin/fbdraw "$img" /dev/fb0 2>/dev/null || true
-                sleep 4
+                sleep 2
                 break
             fi
         done
@@ -95,6 +95,9 @@ for act in /sys/class/leds/ACT /sys/class/leds/led0 /sys/class/leds/*act*; do
         echo 1 > "$act/brightness" 2>/dev/null || true
     fi
 done
+
+# Ensure DRM KMS drivers are loaded for hardware acceleration
+modprobe vc4 v3d 2>/dev/null || true
 
 # Wait for DRM KMS device node (/dev/dri/card0)
 count=0

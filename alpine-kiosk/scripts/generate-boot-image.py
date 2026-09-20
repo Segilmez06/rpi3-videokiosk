@@ -9,43 +9,44 @@ from PIL import Image, ImageDraw, ImageFont
 
 WIDTH, HEIGHT = 1920, 1080
 
-def find_font():
+import subprocess
+
+def get_inter_font(size, weight=500):
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    root_dir = os.path.dirname(os.path.dirname(script_dir))
+    bundled_font = os.path.join(root_dir, "assets", "fonts", "Inter-Variable.ttf")
+
     candidates = [
+        bundled_font,
         os.path.expanduser("~/.fonts/i/Inter_VariableFont_opsz,wght.ttf"),
-        "/usr/share/fonts/TTF/Inter-Regular.ttf",
-        "/usr/share/fonts/inter/Inter-Regular.ttf",
-        "/usr/share/fonts/truetype/inter/Inter-Regular.ttf",
+        "/usr/share/fonts/inter/Inter-VariableFont_opsz,wght.ttf",
+        "/usr/share/fonts/TTF/Inter-VariableFont_opsz,wght.ttf",
     ]
     for c in candidates:
         if os.path.isfile(c):
-            return c
-    import subprocess
-    try:
-        out = subprocess.check_output(["fc-match", "-f", "%{file}\n", "sans-serif"], text=True).strip()
-        if os.path.isfile(out):
-            return out
-    except Exception:
-        pass
-    return None
+            f = ImageFont.truetype(c, size=size)
+            try:
+                opsz = size if 14 <= size <= 32 else (14 if size < 14 else 32)
+                f.set_variation_by_axes([opsz, weight])
+                return f
+            except Exception:
+                return f
 
-def load_font(font_path, size, weight=500):
-    if not font_path:
-        return ImageFont.load_default()
-    font = ImageFont.truetype(font_path, size=size)
-    try:
-        font.set_variation_by_axes([14, weight])
-    except Exception:
+    weight_str = "medium" if weight == 500 else ("bold" if weight >= 700 else "regular")
+    for pattern in [f"Inter:weight={weight_str}", f"sans:weight={weight_str}", "sans"]:
         try:
-            font.set_variation_by_name("Medium" if weight == 500 else "Regular")
+            fpath = subprocess.check_output(["fc-match", "-f", "%{file}\n", pattern], text=True).strip()
+            if os.path.isfile(fpath):
+                return ImageFont.truetype(fpath, size=size)
         except Exception:
             pass
-    return font
+    return ImageFont.load_default()
 
-def render_credits(img, font_path):
+def render_credits(img):
     draw = ImageDraw.Draw(img)
-    # Weight 500 (Medium - default 400 + 100)
-    brand_font = load_font(font_path, size=22, weight=500)
-    credit_font = load_font(font_path, size=17, weight=500)
+    # Weight 500 (Inter Medium - increased +100 from default 400)
+    brand_font = get_inter_font(22, weight=500)
+    credit_font = get_inter_font(17, weight=500)
 
     margin_x = 70
     margin_bottom = 55
@@ -110,13 +111,8 @@ def main():
     img = Image.new("RGB", (WIDTH, HEIGHT), color=(0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    font_path = find_font()
-    if font_path:
-        title_font = ImageFont.truetype(font_path, size=56)
-        desc_font = ImageFont.truetype(font_path, size=28)
-    else:
-        title_font = ImageFont.load_default()
-        desc_font = ImageFont.load_default()
+    title_font = get_inter_font(56, weight=700)
+    desc_font = get_inter_font(28, weight=400)
 
     title_text = "Hang tight!"
     desc_text = "Copying data to RAM."
@@ -153,7 +149,7 @@ def main():
     draw.text((d_x, start_y + t_h + spacing), desc_text, font=desc_font, fill=(160, 160, 160))
 
     # Render bottom-left credits
-    render_credits(img, font_path)
+    render_credits(img)
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     img.save(output_path, "PNG", optimize=True)

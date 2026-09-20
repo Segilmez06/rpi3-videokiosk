@@ -47,6 +47,12 @@ def patch_initramfs(initramfs_path):
             except Exception:
                 pass
             os.chmod(fbdraw_bin, 0o755)
+            usr_bin_fbdraw = os.path.join(workdir, "usr", "bin", "fbdraw")
+            if not os.path.exists(usr_bin_fbdraw):
+                try:
+                    shutil.copy2(fbdraw_bin, usr_bin_fbdraw)
+                except Exception:
+                    pass
             print(f"[+] Compiled freestanding fbdraw: {os.path.getsize(fbdraw_bin)} bytes")
 
         # Convert boot splash image to Netpbm PPM for fbdraw
@@ -56,6 +62,43 @@ def patch_initramfs(initramfs_path):
             ppm_path = os.path.join(workdir, "splash.ppm")
             im.save(ppm_path, format="PPM")
             print(f"[+] Created {ppm_path} ({os.path.getsize(ppm_path)} bytes)")
+
+        # Prune DRM modules from initramfs so simplefb stays active without unbinding
+        print("[*] Pruning DRM drivers from initramfs to preserve firmware framebuffer...")
+        modules_dir = os.path.join(workdir, "usr", "lib", "modules")
+        if os.path.isdir(modules_dir):
+            for kver in os.listdir(modules_dir):
+                kpath = os.path.join(modules_dir, kver)
+                drm_path = os.path.join(kpath, "kernel", "drivers", "gpu", "drm")
+                if os.path.isdir(drm_path):
+                    shutil.rmtree(drm_path)
+                    print(f"[+] Removed DRM modules from initramfs: {drm_path}")
+
+                dep_file = os.path.join(kpath, "modules.dep")
+                if os.path.isfile(dep_file):
+                    with open(dep_file, "r") as f:
+                        lines = f.readlines()
+                    filtered_dep = [l for l in lines if "kernel/drivers/gpu/drm" not in l]
+                    with open(dep_file, "w") as f:
+                        f.writelines(filtered_dep)
+                    print(f"[+] Filtered {len(lines) - len(filtered_dep)} DRM entries from modules.dep")
+
+                alias_file = os.path.join(kpath, "modules.alias")
+                if os.path.isfile(alias_file):
+                    with open(alias_file, "r") as f:
+                        lines = f.readlines()
+                    filtered_alias = [l for l in lines if not any(d in l for d in ["vc4", "v3d", "simpledrm", "udl", "gud"])]
+                    with open(alias_file, "w") as f:
+                        f.writelines(filtered_alias)
+                    print(f"[+] Filtered {len(lines) - len(filtered_alias)} DRM aliases from modules.alias")
+
+        # Add blacklist rules to initramfs modprobe.d
+        blacklist_file = os.path.join(workdir, "etc", "modprobe.d", "blacklist.conf")
+        if os.path.isfile(blacklist_file):
+            with open(blacklist_file, "a") as f:
+                f.write("\n# Video Kiosk: Prevent DRM from unbinding firmware framebuffer during early boot\n")
+                f.write("blacklist vc4\nblacklist v3d\nblacklist simpledrm\nblacklist udl\nblacklist gud\n")
+            print("[+] Appended DRM blacklists to initramfs blacklist.conf")
 
         init_file = os.path.join(workdir, "init")
         with open(init_file, "r") as f:
@@ -83,15 +126,21 @@ done"""
 \t|| $MOCK mount -t tmpfs -o exec,nosuid,mode=0755,size=2M tmpfs /dev
 # Video Kiosk: Immediately paint boot splash image to HDMI framebuffer
 if [ -x /bin/fbdraw ] && [ -f /splash.ppm ]; then
-    (
-        for _try in 1 2 3 4 5 6 7 8 9 10; do
-            if [ -e /dev/fb0 ] || [ -e /dev/fb/0 ]; then
-                /bin/fbdraw /splash.ppm /dev/fb0 2>/dev/null && break
-            fi
-            sleep 0.1
-        done
-    ) &
+    for _try in 1 2 3 4 5 6 7 8 9 10; do
+        if [ -e /dev/fb0 ] || [ -e /dev/fb/0 ]; then
+            /bin/fbdraw /splash.ppm /dev/fb0 2>/dev/null && break
+        fi
+        sleep 0.05
+    done
 fi"""
+
+        target_modprobe = '$MOCK modprobe -a $(echo "$KOPT_modules $rootfstype" | tr \',\' \' \' ) loop squashfs simpledrm 2> /dev/null'
+        code_modprobe = '$MOCK modprobe -a $(echo "$KOPT_modules $rootfstype" | tr \',\' \' \' ) loop squashfs 2> /dev/null'
+
+        target_media = 'ebegin "Mounting boot media"'
+        code_media = """# Video Kiosk: Ensure boot splash remains active before copying to RAM
+[ -x /bin/fbdraw ] && [ -f /splash.ppm ] && [ -e /dev/fb0 ] && /bin/fbdraw /splash.ppm /dev/fb0 2>/dev/null || true
+ebegin "Mounting boot media" """
 
         target2 = "exec switch_root $switch_root_opts $sysroot $chart_init \"$KOPT_init\" $KOPT_init_args"
         code2 = """# Video Kiosk: Copying image to RAM complete -> Green ACT STABLE (SOLID ON), Red PWR OFF
@@ -107,6 +156,7 @@ for _p in /sys/class/leds/PWR /sys/class/leds/led1 /sys/class/leds/*pwr*; do
         echo 0 > "$_p/brightness" 2>/dev/null || true
     fi
 done
+[ -x /bin/fbdraw ] && [ -f /splash.ppm ] && [ -e /dev/fb0 ] && /bin/fbdraw /splash.ppm /dev/fb0 2>/dev/null || true
 exec switch_root $switch_root_opts $sysroot $chart_init "$KOPT_init" $KOPT_init_args"""
 
         if target1 not in content:
@@ -121,6 +171,12 @@ exec switch_root $switch_root_opts $sysroot $chart_init "$KOPT_init" $KOPT_init_
 
         content = content.replace(target1, code1, 1)
         content = content.replace(target_dev, code_dev, 1)
+        if target_modprobe in content:
+            content = content.replace(target_modprobe, code_modprobe, 1)
+            print("[+] Removed simpledrm from early modprobe list in init")
+        if target_media in content:
+            content = content.replace(target_media, code_media, 1)
+            print("[+] Injected splash refresh before mounting boot media in init")
         content = content.replace(target2, code2, 1)
 
         with open(init_file, "w") as f:
@@ -136,7 +192,7 @@ exec switch_root $switch_root_opts $sysroot $chart_init "$KOPT_init" $KOPT_init_
             cpio_proc.stdout.close()
             gzip_proc.communicate()
 
-        print(f"[+] Successfully injected LED sequence and fbdraw splash into {initramfs_path}")
+        print(f"[+] Successfully injected LED sequence, DRM pruning, and fbdraw splash into {initramfs_path}")
         os.unlink(backup_path)
         return 0
     finally:

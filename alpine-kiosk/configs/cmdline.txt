@@ -1,1 +1,1 @@
-modules=loop,squashfs,sd-mod,usb-storage console=ttyAMA0,115200 quiet splash=no vt.global_cursor_default=0 logo.nologo quiet_opt=yes
+modules=loop,squashfs,sd-mod,usb-storage console=ttyAMA0,115200 quiet splash=no vt.global_cursor_default=0 logo.nologo consoleblank=0 quiet_opt=yes
